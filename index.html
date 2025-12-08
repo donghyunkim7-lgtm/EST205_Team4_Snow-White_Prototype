@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snow White - Interactive Tale</title>
+  <title>Snow White - Interactive Tale with Audio</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -11,15 +11,210 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
     .font-serif { font-family: 'Crimson Text', serif; }
+    
+    /* Audio visualizer animation */
+    @keyframes soundWave {
+      0%, 100% { height: 4px; }
+      50% { height: 16px; }
+    }
+    .sound-wave {
+      animation: soundWave 0.5s ease-in-out infinite;
+    }
+    .sound-wave:nth-child(2) { animation-delay: 0.1s; }
+    .sound-wave:nth-child(3) { animation-delay: 0.2s; }
+    .sound-wave:nth-child(4) { animation-delay: 0.3s; }
+    .sound-wave:nth-child(5) { animation-delay: 0.4s; }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    const { useState } = React;
+    const { useState, useEffect, useRef, useCallback } = React;
 
+    // ===== AUDIO MANAGER =====
+    class AudioManager {
+      constructor() {
+        this.bgMusic = null;
+        this.sounds = {};
+        this.isMuted = false;
+        this.bgVolume = 0.3;
+        this.sfxVolume = 0.5;
+        this.speechSynth = window.speechSynthesis;
+        this.currentUtterance = null;
+        this.isNarrating = false;
+        
+        // Initialize background music
+        this.initBgMusic();
+        
+        // Initialize sound effects
+        this.initSoundEffects();
+      }
+
+      initBgMusic() {
+        // Using a free fantasy ambient track
+        this.bgMusic = new Audio('https://cdn.pixabay.com/download/audio/2022/10/25/audio_946b0939c8.mp3?filename=medieval-fantasy-142897.mp3');
+        this.bgMusic.loop = true;
+        this.bgMusic.volume = this.bgVolume;
+      }
+
+      initSoundEffects() {
+        // Create oscillator-based sound effects (no external files needed)
+        this.audioContext = null;
+        try {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          console.log('Web Audio API not supported');
+        }
+      }
+
+      // Generate sound effects using Web Audio API
+      playTone(frequency, duration, type = 'sine', volume = 0.3) {
+        if (this.isMuted || !this.audioContext) return;
+        
+        // Resume audio context if suspended
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+        }
+
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        oscillator.frequency.value = frequency;
+        oscillator.type = type;
+        
+        gainNode.gain.setValueAtTime(volume * this.sfxVolume, this.audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+        
+        oscillator.start(this.audioContext.currentTime);
+        oscillator.stop(this.audioContext.currentTime + duration);
+      }
+
+      // Sound effect presets
+      playClick() {
+        this.playTone(800, 0.1, 'sine', 0.2);
+        setTimeout(() => this.playTone(1000, 0.1, 'sine', 0.15), 50);
+      }
+
+      playChoice() {
+        this.playTone(400, 0.15, 'triangle', 0.3);
+        setTimeout(() => this.playTone(500, 0.15, 'triangle', 0.25), 100);
+        setTimeout(() => this.playTone(600, 0.2, 'triangle', 0.2), 200);
+      }
+
+      playTransition() {
+        this.playTone(300, 0.3, 'sine', 0.2);
+        setTimeout(() => this.playTone(400, 0.3, 'sine', 0.15), 150);
+      }
+
+      playDarkEnding() {
+        this.playTone(200, 0.5, 'sawtooth', 0.2);
+        setTimeout(() => this.playTone(150, 0.5, 'sawtooth', 0.15), 300);
+        setTimeout(() => this.playTone(100, 0.8, 'sawtooth', 0.1), 600);
+      }
+
+      playGoodEnding() {
+        const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+        notes.forEach((freq, i) => {
+          setTimeout(() => this.playTone(freq, 0.3, 'sine', 0.25), i * 150);
+        });
+      }
+
+      playInnerThought() {
+        this.playTone(600, 0.4, 'sine', 0.1);
+        setTimeout(() => this.playTone(650, 0.3, 'sine', 0.08), 200);
+      }
+
+      // Background music controls
+      async playBgMusic() {
+        if (this.isMuted) return;
+        try {
+          this.bgMusic.volume = this.bgVolume;
+          await this.bgMusic.play();
+        } catch (e) {
+          console.log('Background music autoplay blocked, will play on interaction');
+        }
+      }
+
+      pauseBgMusic() {
+        this.bgMusic.pause();
+      }
+
+      setBgVolume(volume) {
+        this.bgVolume = volume;
+        if (this.bgMusic) {
+          this.bgMusic.volume = volume;
+        }
+      }
+
+      setSfxVolume(volume) {
+        this.sfxVolume = volume;
+      }
+
+      // Voice narration using Web Speech API
+      speak(text, onEnd = null) {
+        if (this.isMuted || !this.speechSynth) return;
+        
+        // Cancel any ongoing speech
+        this.stopSpeaking();
+        
+        this.currentUtterance = new SpeechSynthesisUtterance(text);
+        this.currentUtterance.rate = 0.9;
+        this.currentUtterance.pitch = 1;
+        this.currentUtterance.volume = 0.8;
+        
+        // Try to use a female English voice
+        const voices = this.speechSynth.getVoices();
+        const preferredVoice = voices.find(v => 
+          v.lang.includes('en') && v.name.toLowerCase().includes('female')
+        ) || voices.find(v => v.lang.includes('en-US')) || voices[0];
+        
+        if (preferredVoice) {
+          this.currentUtterance.voice = preferredVoice;
+        }
+
+        this.currentUtterance.onstart = () => {
+          this.isNarrating = true;
+        };
+
+        this.currentUtterance.onend = () => {
+          this.isNarrating = false;
+          if (onEnd) onEnd();
+        };
+
+        this.currentUtterance.onerror = () => {
+          this.isNarrating = false;
+        };
+
+        this.speechSynth.speak(this.currentUtterance);
+      }
+
+      stopSpeaking() {
+        if (this.speechSynth) {
+          this.speechSynth.cancel();
+        }
+        this.isNarrating = false;
+      }
+
+      toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (this.isMuted) {
+          this.pauseBgMusic();
+          this.stopSpeaking();
+        } else {
+          this.playBgMusic();
+        }
+        return this.isMuted;
+      }
+    }
+
+    // Create global audio manager instance
+    const audioManager = new AudioManager();
+
+    // ===== STORY DATA =====
     const storyData = {
-      // ===== PROLOGUE =====
       prologue: {
         id: 'prologue',
         type: 'prologue',
@@ -80,7 +275,7 @@
         ]
       },
       
-      // ===== PUNISHMENT PATH =====
+      // PUNISHMENT PATH
       punish1: {
         id: 'punish1',
         type: 'narration',
@@ -110,7 +305,7 @@
         ]
       },
       
-      // --- MACHIAVELLIAN PATH ---
+      // MACHIAVELLIAN PATH
       machiavelli_path1: {
         id: 'machiavelli_path1',
         type: 'narration',
@@ -144,8 +339,8 @@
         type: 'ending',
         framework: 'machiavellian',
         endingType: 'dark',
-        text: "Snow White executes the Queen and exiles all her supporters. She feels no joy, no guilt—only the cold weight of necessity. Her kingdom prospers under firm rule, but she sleeps alone, surrounded by fear rather than love. In quiet moments, she wonders: was her childhood 'goodness' ever real? Or was she always this person, simply waiting for power to reveal herself?",
-        analysis: "Snow White's 'good heart' was revealed as a behavioral adaptation to powerlessness. In the fairy tale's absolute monarchy, where no law protected her from the Queen, kindness was her only survival strategy. Once she gained power, that strategy became obsolete—replaced by the cold logic of political necessity. Her goodness was never a fixed internal virtue; it was a rational response to being the 'absolute weak party.'",
+        text: "Snow White executes the Queen and exiles all her supporters. She feels no joy, no guilt—only the cold weight of necessity. Her kingdom prospers under firm rule, but she sleeps alone, surrounded by fear rather than love.",
+        analysis: "Snow White's 'good heart' was revealed as a behavioral adaptation to powerlessness. Her goodness was never a fixed internal virtue; it was a rational response to being the 'absolute weak party.'",
         retryPoints: ['choice2', 'choice1']
       },
       ending_machiavelli_moderate: {
@@ -153,12 +348,12 @@
         type: 'ending',
         framework: 'machiavellian',
         endingType: 'neutral',
-        text: "Snow White spares the Queen's allies but keeps them under constant surveillance. She rules with pragmatism—neither cruel nor kind, but always strategic. Trust becomes a currency she can no longer spend freely. In her private moments, she wonders if she was ever truly 'good,' or if she was simply too weak to be anything else.",
-        analysis: "A moderate expression of Machiavellian Realism. Snow White's goodness partially survives, but it has been transformed from a moral essence into a political tool. She is kind when it's useful, harsh when necessary. Her 'adaptive behavior'—formed in the asymmetrical power relationship of her youth—has evolved into calculated governance rather than dissolving entirely.",
+        text: "Snow White spares the Queen's allies but keeps them under constant surveillance. She rules with pragmatism—neither cruel nor kind, but always strategic. Trust becomes a currency she can no longer spend freely.",
+        analysis: "A moderate expression of Machiavellian Realism. Snow White's goodness partially survives, but it has been transformed from a moral essence into a political tool.",
         retryPoints: ['choice_machiavelli', 'choice2', 'choice1']
       },
 
-      // --- CYNICISM PATH ---
+      // CYNICISM PATH
       cynicism_path1: {
         id: 'cynicism_path1',
         type: 'narration',
@@ -198,8 +393,8 @@
         type: 'ending',
         framework: 'dogma',
         endingType: 'tragic',
-        text: "Snow White raises her hand—'Stop.' But it's too late. The Queen dies from her wounds moments later. Snow White stares at her own hands, trembling. For years she believed she was good. Now she knows the truth: her 'goodness' was merely the behavior of the powerless. The moment she gained power, she became indistinguishable from her tormentor.",
-        analysis: "This ending embodies the Dogma/Cynicism framework's core claim: goodness is an illusion. Snow White's kindness was 'best understood not as a stable moral essence but as adaptive behavior in a violently unequal power relationship.' When that relationship inverted, so did her behavior—proving that morality was never internal, only circumstantial. The weak are not virtuous; they simply lack the power to be cruel.",
+        text: "Snow White raises her hand—'Stop.' But it's too late. The Queen dies from her wounds moments later. Snow White stares at her own hands, trembling. For years she believed she was good. Now she knows the truth.",
+        analysis: "This ending embodies the Dogma/Cynicism framework's core claim: goodness is an illusion. The weak are not virtuous; they simply lack the power to be cruel.",
         retryPoints: ['choice_cynicism', 'choice2', 'choice1']
       },
       ending_cynicism_full: {
@@ -207,12 +402,12 @@
         type: 'ending',
         framework: 'dogma',
         endingType: 'dark',
-        text: "The Queen dies in atrocious agony while Snow White watches without blinking. From that day forward, executions become daily spectacles. Dissenters learn what Snow White learned long ago: in this world, you are either the hammer or the nail. She chose to become the hammer. In her private moments, she laughs bitterly at the old stories—the ones that called her 'good.'",
-        analysis: "The darkest expression of Dogma/Cynicism. Snow White's transformation proves that her childhood 'good heart' was never a fixed virtue—it was, as the abductive analysis suggests, an 'imagined future where, if she eventually obtained power, she could invert the structure that once oppressed her.' That inversion is now complete. The victim has become the victimizer, revealing that 'goodness' in asymmetrical power structures is merely a tactic of the weak.",
+        text: "The Queen dies in atrocious agony while Snow White watches without blinking. From that day forward, executions become daily spectacles. She chose to become the hammer. In her private moments, she laughs bitterly at the old stories—the ones that called her 'good.'",
+        analysis: "The darkest expression of Dogma/Cynicism. The victim has become the victimizer, revealing that 'goodness' in asymmetrical power structures is merely a tactic of the weak.",
         retryPoints: ['choice_cynicism', 'choice2', 'choice1']
       },
 
-      // ===== INTERROGATION PATH =====
+      // INTERROGATION PATH
       interrogate1: {
         id: 'interrogate1',
         type: 'narration',
@@ -241,14 +436,14 @@
         id: 'choice_interrogate1',
         type: 'choice',
         question: "Snow White has received an answer. But is it the complete truth?",
-        context: "She could stop here and pass judgment. Or she could dig deeper—beyond the surface, beyond the simple narrative of 'good princess vs. evil queen.'",
+        context: "She could stop here and pass judgment. Or she could dig deeper.",
         options: [
           { label: "A. Accept her reason and show mercy", subtext: "Let cosmic justice decide her fate", next: 'karma_path1' },
           { label: "B. Keep questioning—there must be a deeper cause", subtext: "Jealousy doesn't appear from nowhere", next: 'emotionalism_path1' }
         ]
       },
 
-      // --- KARMA PATH ---
+      // KARMA PATH
       karma_path1: {
         id: 'karma_path1',
         type: 'narration',
@@ -264,17 +459,17 @@
       karma_path2: {
         id: 'karma_path2',
         type: 'narration',
-        text: "The crowd murmurs in confusion. The Prince asks: 'Is this justice?' Snow White replies: 'Justice is not mine alone to give. The universe balances all debts—in this life or the next. I choose not to become another link in the chain of cruelty.'",
+        text: "The crowd murmurs in confusion. The Prince asks: 'Is this justice?' Snow White replies: 'Justice is not mine alone to give. The universe balances all debts—in this life or the next.'",
         next: 'choice_karma'
       },
       choice_karma: {
         id: 'choice_karma',
         type: 'choice',
         question: "Years pass. The Queen lives alone in the forest. What do you believe happened to her?",
-        context: "This choice reveals your view of cosmic justice—does the universe truly balance moral accounts?",
+        context: "This choice reveals your view of cosmic justice.",
         options: [
           { label: "A. She paid for her sins through loneliness", subtext: "Karma found her in the end", next: 'ending_karma_natural' },
-          { label: "B. She never changed—and my children are now in danger", subtext: "Some people cannot be redeemed", next: 'ending_karma_cycle' }
+          { label: "B. She never changed—and my children are in danger", subtext: "Some people cannot be redeemed", next: 'ending_karma_cycle' }
         ]
       },
       ending_karma_natural: {
@@ -282,8 +477,8 @@
         type: 'ending',
         framework: 'karma',
         endingType: 'bittersweet',
-        text: "The Queen dies alone in the forest, never finding the love she desperately sought. When Snow White hears the news, she feels a complex mixture of sadness and peace. She chose not to become the instrument of vengeance—trusting that justice would find its own path. Was her mercy 'goodness'? Or simply a way to keep her own hands clean? She will never know for certain.",
-        analysis: "This ending represents Karma/Religious Cosmology. Snow White tolerates the Queen but relies on posthumous or cosmic justice to deliver the final verdict. By refusing personal vengeance, she maintains her moral identity—but it remains ambiguous whether this was genuine virtue or merely a sophisticated form of the same survival strategy. She preserved her 'goodness' by outsourcing punishment to the universe.",
+        text: "The Queen dies alone in the forest, never finding the love she desperately sought. When Snow White hears the news, she feels a complex mixture of sadness and peace. She chose not to become the instrument of vengeance.",
+        analysis: "This ending represents Karma/Religious Cosmology. Snow White maintains her moral identity by outsourcing punishment to the universe.",
         retryPoints: ['choice_karma', 'choice_interrogate1', 'choice1']
       },
       ending_karma_cycle: {
@@ -291,16 +486,16 @@
         type: 'ending',
         framework: 'karma',
         endingType: 'tragic',
-        text: "Years later, Snow White's daughter wanders into the forest and meets a kind old woman offering a beautiful comb. The Queen never changed. The cycle of jealousy and violence continues into the next generation. Snow White's 'mercy' was not virtue—it was naivety. By refusing to act, she passed her trauma to her children.",
-        analysis: "A tragic subversion of Karma. Snow White's faith in cosmic justice was misplaced—the Queen's karma did not manifest in this lifetime. This ending questions whether deferred justice is truly justice, or whether the 'survival strategy' analysis was correct all along: Snow White's mercy wasn't genuine goodness, but merely her old habit of avoiding direct confrontation—the same behavior that kept her alive in the forest.",
+        text: "Years later, Snow White's daughter wanders into the forest and meets a kind old woman offering a beautiful comb. The Queen never changed. The cycle of jealousy and violence continues into the next generation.",
+        analysis: "A tragic subversion of Karma. Snow White's faith in cosmic justice was misplaced—the Queen's karma did not manifest in this lifetime.",
         retryPoints: ['choice_karma', 'choice_interrogate1', 'choice1']
       },
 
-      // --- EMOTIONALISM PATH ---
+      // EMOTIONALISM PATH
       emotionalism_path1: {
         id: 'emotionalism_path1',
         type: 'narration',
-        text: '"No," Snow White says firmly, stepping closer to the kneeling Queen. "Jealousy doesn\'t appear from nowhere. Who taught you that your worth depends on being the fairest? What—or who—made you believe that beauty was everything?"',
+        text: '"No," Snow White says firmly. "Jealousy doesn\'t appear from nowhere. Who taught you that your worth depends on being the fairest? What—or who—made you believe that beauty was everything?"',
         next: 'emotionalism_inner1'
       },
       emotionalism_inner1: {
@@ -312,13 +507,13 @@
       emotionalism_path2: {
         id: 'emotionalism_path2',
         type: 'narration',
-        text: 'The Queen\'s eyes fill with tears. Slowly, she points at the ornate mirrors lining the walls. "It was them... the magic mirror. Every day it told me who was fairest. Every day I lived in terror of the answer changing. It made me into this monster."',
+        text: 'The Queen\'s eyes fill with tears. Slowly, she points at the ornate mirrors lining the walls. "It was them... the magic mirror. Every day it told me who was fairest. Every day I lived in terror of the answer changing."',
         next: 'emotionalism_inner2'
       },
       emotionalism_inner2: {
         id: 'emotionalism_inner2',
         type: 'inner_thought',
-        text: "Snow White sees it now—the Queen was also a victim. A victim of a system that reduced women's worth to appearance. A victim of a magical artifact that weaponized vanity. A victim of a world that taught competition instead of compassion. The Queen wasn't born evil. She was made.",
+        text: "Snow White sees it now—the Queen was also a victim. A victim of a system that reduced women's worth to appearance. A victim of a world that taught competition instead of compassion. The Queen wasn't born evil. She was made.",
         next: 'emotionalism_path3'
       },
       emotionalism_path3: {
@@ -331,10 +526,10 @@
         id: 'choice_emotionalism',
         type: 'choice',
         question: "Snow White now sees the full picture—the Queen, the mirrors, the system that created them both.",
-        context: "True moral transformation requires addressing both the symptom (the Queen) and the cause (the mirrors). What will she do?",
+        context: "True moral transformation requires addressing both the symptom and the cause.",
         options: [
           { label: "A. Forgive the Queen but keep the mirrors", subtext: "Personal reconciliation is enough", next: 'ending_emotionalism_incomplete' },
-          { label: "B. Destroy the mirrors but remain angry at the Queen", subtext: "Fix the system, but I cannot forgive her", next: 'ending_emotionalism_partial' },
+          { label: "B. Destroy the mirrors but remain angry", subtext: "Fix the system, but I cannot forgive her", next: 'ending_emotionalism_partial' },
           { label: "C. Forgive the Queen AND destroy the mirrors", subtext: "Address both the person and the structure", next: 'ending_emotionalism_full' }
         ]
       },
@@ -343,8 +538,8 @@
         type: 'ending',
         framework: 'emotionalism',
         endingType: 'bittersweet',
-        text: "Snow White embraces the Queen, and they begin to heal together. But the mirrors remain. Years later, Snow White catches herself asking a mirror who is fairest—and feels a familiar anxiety when she notices her first wrinkle. The cycle was never truly broken.",
-        analysis: "An incomplete expression of Moral Idealism. Snow White's forgiveness was genuine—proving that her 'goodness' could transform from survival strategy into free moral choice. However, by failing to address the structural cause (the mirrors), she left the disease untreated. Her individual virtue was real, but insufficient to break the systemic cycle.",
+        text: "Snow White embraces the Queen, and they begin to heal together. But the mirrors remain. Years later, Snow White catches herself asking a mirror who is fairest—and feels a familiar anxiety when she notices her first wrinkle.",
+        analysis: "An incomplete expression of Moral Idealism. Snow White's forgiveness was genuine, but by failing to address the structural cause, she left the disease untreated.",
         retryPoints: ['choice_emotionalism', 'choice_interrogate1', 'choice1']
       },
       ending_emotionalism_partial: {
@@ -352,8 +547,8 @@
         type: 'ending',
         framework: 'emotionalism',
         endingType: 'neutral',
-        text: "Snow White orders every mirror in the kingdom destroyed. No one will ever again be told they must be 'the fairest.' But she cannot forgive the Queen, and banishes her forever. Snow White's reign is just—but her heart remains scarred. She fixed the world but could not fully heal herself.",
-        analysis: "A partial victory for Moral Idealism. Snow White correctly identified and eliminated the structural cause of the Queen's corruption—the mirrors and the system of comparison they represented. However, her inability to forgive shows that her 'goodness' still carries the scars of her victimhood. She transcended survival strategy but could not fully achieve moral transformation.",
+        text: "Snow White orders every mirror in the kingdom destroyed. No one will ever again be told they must be 'the fairest.' But she cannot forgive the Queen. Snow White's reign is just—but her heart remains scarred.",
+        analysis: "A partial victory for Moral Idealism. She transcended survival strategy but could not fully achieve moral transformation.",
         retryPoints: ['choice_emotionalism', 'choice_interrogate1', 'choice1']
       },
       ending_emotionalism_full: {
@@ -361,41 +556,17 @@
         type: 'ending',
         framework: 'emotionalism',
         endingType: 'best',
-        text: "Snow White takes the Queen's hands and helps her stand. Together, they walk to the great mirror and shatter it. The sound echoes through the palace like a spell breaking. Every mirror in the kingdom is replaced with windows—symbols of looking outward, not inward. The Queen becomes a teacher, warning young people about the poison of comparison. And Snow White? She rules not because she has to be 'good' to survive, but because she chooses to be—freely, without fear, without calculation.",
-        analysis: "The fullest expression of Emotionalism/Moral Idealism. Snow White's original 'adaptive behavior'—her childhood kindness born from powerlessness—has transformed into genuine moral agency. By forgiving the Queen (addressing the individual) AND destroying the mirrors (addressing the system), she breaks the cycle completely. This ending answers the core question: what happens to Snow White's goodness when power reverses? Here, it survives—not as a survival strategy, but as a free choice. Her goodness was not an illusion; it was a seed that, once freed from the soil of fear, could finally bloom.",
+        text: "Snow White takes the Queen's hands and helps her stand. Together, they walk to the great mirror and shatter it. Every mirror in the kingdom is replaced with windows—symbols of looking outward, not inward. The Queen becomes a teacher. And Snow White rules not because she has to be 'good' to survive, but because she chooses to be—freely, without fear.",
+        analysis: "The fullest expression of Emotionalism/Moral Idealism. Her goodness was not an illusion; it was a seed that, once freed from the soil of fear, could finally bloom.",
         retryPoints: ['choice_emotionalism', 'choice_interrogate1', 'choice1']
       }
     };
 
     const frameworkInfo = {
-      emotionalism: {
-        name: "Emotionalism / Moral Idealism",
-        subtitle: "Goodness as Internal Virtue",
-        color: "emerald",
-        icon: "💚",
-        description: "Under this framework, Snow White's original survival-based kindness transforms into genuine moral agency—goodness that persists even when she no longer needs it for protection."
-      },
-      karma: {
-        name: "Karma / Religious Cosmology", 
-        subtitle: "Goodness as Cosmic Balance",
-        color: "violet",
-        icon: "☯️",
-        description: "This worldview trusts that moral causality operates beyond individual lifetimes. By refusing personal vengeance, Snow White maintains her moral identity—but whether this is genuine virtue or sophisticated avoidance remains ambiguous."
-      },
-      dogma: {
-        name: "Dogma / Cynicism",
-        subtitle: "Goodness as Illusion",
-        color: "red",
-        icon: "🎭",
-        description: "In this view, 'goodness' was never a stable moral essence—only adaptive behavior shaped by political vulnerability. Once Snow White gains power, her behavior mirrors the Queen's."
-      },
-      machiavellian: {
-        name: "Machiavellian Realism",
-        subtitle: "Goodness as Political Performance",
-        color: "slate",
-        icon: "👑",
-        description: "Power generates structural necessities that override individual morality. Snow White doesn't desire cruelty, but the logic of political survival compels pre-emptive action."
-      }
+      emotionalism: { name: "Emotionalism / Moral Idealism", subtitle: "Goodness as Internal Virtue", color: "emerald", icon: "💚" },
+      karma: { name: "Karma / Religious Cosmology", subtitle: "Goodness as Cosmic Balance", color: "violet", icon: "☯️" },
+      dogma: { name: "Dogma / Cynicism", subtitle: "Goodness as Illusion", color: "red", icon: "🎭" },
+      machiavellian: { name: "Machiavellian Realism", subtitle: "Goodness as Political Performance", color: "slate", icon: "👑" }
     };
 
     const choiceLabels = {
@@ -408,15 +579,205 @@
       choice_emotionalism: "The Root Cause"
     };
 
+    // ===== AUDIO CONTROLS COMPONENT =====
+    function AudioControls({ audioManager, isNarrating, onNarrateToggle }) {
+      const [isMuted, setIsMuted] = useState(false);
+      const [bgVolume, setBgVolume] = useState(0.3);
+      const [sfxVolume, setSfxVolume] = useState(0.5);
+      const [autoNarrate, setAutoNarrate] = useState(true);
+      const [showControls, setShowControls] = useState(false);
+
+      const handleMuteToggle = () => {
+        const muted = audioManager.toggleMute();
+        setIsMuted(muted);
+      };
+
+      const handleBgVolumeChange = (e) => {
+        const vol = parseFloat(e.target.value);
+        setBgVolume(vol);
+        audioManager.setBgVolume(vol);
+      };
+
+      const handleSfxVolumeChange = (e) => {
+        const vol = parseFloat(e.target.value);
+        setSfxVolume(vol);
+        audioManager.setSfxVolume(vol);
+      };
+
+      return (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="flex items-center gap-2">
+            {/* Narrating indicator */}
+            {isNarrating && (
+              <div className="flex items-center gap-1 bg-purple-600/80 px-3 py-2 rounded-full">
+                <div className="flex gap-0.5 items-end h-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="w-1 bg-white rounded-full sound-wave" style={{height: '4px'}} />
+                  ))}
+                </div>
+                <span className="text-white text-xs ml-1">Speaking...</span>
+              </div>
+            )}
+            
+            {/* Quick mute button */}
+            <button
+              onClick={handleMuteToggle}
+              className="bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-full transition-all"
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              <span className="text-xl">{isMuted ? '🔇' : '🔊'}</span>
+            </button>
+
+            {/* Settings button */}
+            <button
+              onClick={() => setShowControls(!showControls)}
+              className="bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-full transition-all"
+            >
+              <span className="text-xl">⚙️</span>
+            </button>
+          </div>
+
+          {/* Expanded controls */}
+          {showControls && (
+            <div className="absolute top-14 right-0 bg-slate-800/95 backdrop-blur-sm rounded-xl p-4 w-64 border border-purple-500/30 shadow-2xl">
+              <h3 className="text-white font-medium mb-4 text-sm">🎵 Audio Settings</h3>
+              
+              {/* Background Music */}
+              <div className="mb-4">
+                <label className="text-purple-300 text-xs block mb-1">Background Music</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={bgVolume}
+                  onChange={handleBgVolumeChange}
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* Sound Effects */}
+              <div className="mb-4">
+                <label className="text-purple-300 text-xs block mb-1">Sound Effects</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={sfxVolume}
+                  onChange={handleSfxVolumeChange}
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* Auto Narration */}
+              <div className="flex items-center justify-between">
+                <label className="text-purple-300 text-xs">Auto Voice Narration</label>
+                <button
+                  onClick={() => {
+                    setAutoNarrate(!autoNarrate);
+                    onNarrateToggle(!autoNarrate);
+                    if (autoNarrate) audioManager.stopSpeaking();
+                  }}
+                  className={`w-12 h-6 rounded-full transition-all ${autoNarrate ? 'bg-purple-600' : 'bg-slate-600'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full transition-all transform ${autoNarrate ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              {/* Stop narration button */}
+              {isNarrating && (
+                <button
+                  onClick={() => audioManager.stopSpeaking()}
+                  className="mt-3 w-full bg-red-600/50 hover:bg-red-600/70 text-white py-2 px-3 rounded-lg text-xs transition-all"
+                >
+                  ⏹ Stop Narration
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ===== MAIN COMPONENT =====
     function SnowWhiteStory() {
       const [currentNode, setCurrentNode] = useState('prologue');
       const [history, setHistory] = useState([]);
       const [isTransitioning, setIsTransitioning] = useState(false);
       const [showAnalysis, setShowAnalysis] = useState(false);
+      const [isNarrating, setIsNarrating] = useState(false);
+      const [autoNarrate, setAutoNarrate] = useState(true);
+      const [musicStarted, setMusicStarted] = useState(false);
 
       const node = storyData[currentNode];
 
+      // Start music on first interaction
+      const startMusic = useCallback(() => {
+        if (!musicStarted) {
+          audioManager.playBgMusic();
+          setMusicStarted(true);
+        }
+      }, [musicStarted]);
+
+      // Narrate current node
+      useEffect(() => {
+        if (!autoNarrate) return;
+        
+        let textToSpeak = '';
+        if (node.type === 'prologue') {
+          textToSpeak = node.puzzle;
+        } else if (node.type === 'narration') {
+          textToSpeak = node.text;
+        } else if (node.type === 'inner_thought') {
+          textToSpeak = node.text;
+        } else if (node.type === 'choice') {
+          textToSpeak = node.question;
+        } else if (node.type === 'ending') {
+          textToSpeak = node.text;
+        }
+
+        if (textToSpeak) {
+          // Small delay to let transition finish
+          const timer = setTimeout(() => {
+            setIsNarrating(true);
+            audioManager.speak(textToSpeak, () => setIsNarrating(false));
+          }, 400);
+          return () => clearTimeout(timer);
+        }
+      }, [currentNode, autoNarrate]);
+
+      // Play sound effects based on node type
+      useEffect(() => {
+        if (node.type === 'inner_thought') {
+          audioManager.playInnerThought();
+        } else if (node.type === 'ending') {
+          if (node.endingType === 'best') {
+            audioManager.playGoodEnding();
+          } else if (node.endingType === 'dark') {
+            audioManager.playDarkEnding();
+          }
+        }
+      }, [currentNode]);
+
       const handleNext = (nextId) => {
+        startMusic();
+        audioManager.playClick();
+        audioManager.stopSpeaking();
+        setIsTransitioning(true);
+        setShowAnalysis(false);
+        setTimeout(() => {
+          setHistory([...history, currentNode]);
+          setCurrentNode(nextId);
+          setIsTransitioning(false);
+          audioManager.playTransition();
+        }, 300);
+      };
+
+      const handleChoice = (nextId) => {
+        startMusic();
+        audioManager.playChoice();
+        audioManager.stopSpeaking();
         setIsTransitioning(true);
         setShowAnalysis(false);
         setTimeout(() => {
@@ -427,6 +788,8 @@
       };
 
       const handleRetry = (retryPoint) => {
+        audioManager.playClick();
+        audioManager.stopSpeaking();
         setIsTransitioning(true);
         setShowAnalysis(false);
         setTimeout(() => {
@@ -442,6 +805,8 @@
       };
 
       const handleRestart = () => {
+        audioManager.playClick();
+        audioManager.stopSpeaking();
         setIsTransitioning(true);
         setShowAnalysis(false);
         setTimeout(() => {
@@ -485,6 +850,13 @@
 
       return (
         <div className="min-h-screen bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4">
+          {/* Audio Controls */}
+          <AudioControls 
+            audioManager={audioManager} 
+            isNarrating={isNarrating}
+            onNarrateToggle={setAutoNarrate}
+          />
+
           {/* Starfield */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none">
             {[...Array(50)].map((_, i) => (
@@ -529,7 +901,7 @@
                   <p className="text-white text-lg md:text-xl leading-relaxed font-serif italic">{node.puzzle}</p>
                 </blockquote>
                 <button onClick={() => handleNext(node.next)} className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg">
-                  Explore the Answer →
+                  🎧 Begin the Journey →
                 </button>
               </div>
             )}
@@ -573,7 +945,7 @@
                   {node.options.map((option, index) => (
                     <button
                       key={index}
-                      onClick={() => handleNext(option.next)}
+                      onClick={() => handleChoice(option.next)}
                       className="w-full text-left bg-gradient-to-r from-slate-700 to-slate-600 hover:from-amber-700 hover:to-amber-600 text-white py-4 px-5 rounded-xl transition-all duration-200 transform hover:scale-101 active:scale-99 border border-slate-500/50 hover:border-amber-400/50 shadow-md group"
                     >
                       <div className="font-medium">{option.label}</div>
@@ -614,7 +986,7 @@
                   {node.analysis && (
                     <div className="mb-6">
                       <button
-                        onClick={() => setShowAnalysis(!showAnalysis)}
+                        onClick={() => { setShowAnalysis(!showAnalysis); audioManager.playClick(); }}
                         className="w-full bg-white/10 hover:bg-white/20 text-white py-2 px-4 rounded-lg text-sm transition-all duration-200 border border-white/20 flex items-center justify-center gap-2"
                       >
                         <span>🔍</span>
@@ -627,14 +999,7 @@
                           <h4 className="text-white/80 font-medium mb-2 text-sm uppercase tracking-wide flex items-center gap-2">
                             <span>📚</span> Theoretical Analysis
                           </h4>
-                          <p className="text-white/70 text-sm leading-relaxed mb-4">{node.analysis}</p>
-                          {node.framework && (
-                            <div className="mt-3 pt-3 border-t border-white/10">
-                              <p className="text-white/50 text-xs italic">
-                                <strong className="text-white/70">{frameworkInfo[node.framework].name}:</strong> {frameworkInfo[node.framework].description}
-                              </p>
-                            </div>
-                          )}
+                          <p className="text-white/70 text-sm leading-relaxed">{node.analysis}</p>
                         </div>
                       )}
                     </div>
@@ -671,17 +1036,21 @@
                   {storyData[h]?.type === 'choice' ? '⚔️' : storyData[h]?.type === 'inner_thought' ? '💭' : storyData[h]?.type === 'prologue' ? '📜' : '📖'}
                 </span>
               ))}
-              {history.length > 6 && <span>...</span>}
             </div>
           )}
 
           {/* Footer */}
           <footer className="mt-6 text-purple-400/50 text-xs text-center relative z-10">
-            Based on the Brothers Grimm fairy tale • Abductive & Retroductive Analysis
+            🎵 Click anywhere to start background music • Based on Brothers Grimm
           </footer>
         </div>
       );
     }
+
+    // Load voices
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
 
     ReactDOM.createRoot(document.getElementById('root')).render(<SnowWhiteStory />);
   </script>
