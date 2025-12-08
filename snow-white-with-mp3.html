@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snow White - Interactive Tale with Audio</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+    .font-serif { font-family: 'Crimson Text', serif; }
+    
+    @keyframes soundWave {
+      0%, 100% { height: 4px; }
+      50% { height: 16px; }
+    }
+    .sound-wave {
+      animation: soundWave 0.5s ease-in-out infinite;
+    }
+    .sound-wave:nth-child(2) { animation-delay: 0.1s; }
+    .sound-wave:nth-child(3) { animation-delay: 0.2s; }
+    .sound-wave:nth-child(4) { animation-delay: 0.3s; }
+    .sound-wave:nth-child(5) { animation-delay: 0.4s; }
+
+    /* Custom file input */
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <!-- 
+  ╔════════════════════════════════════════════════════════════════╗
+  ║  🎵 MP3 파일 사용 방법                                          ║
+  ╠════════════════════════════════════════════════════════════════╣
+  ║  1. 이 HTML 파일과 같은 폴더에 MP3 파일을 넣으세요              ║
+  ║  2. 파일 이름을 아래 중 하나로 변경하세요:                      ║
+  ║     - bgm.mp3 (기본 배경음악)                                   ║
+  ║     - ending-good.mp3 (좋은 엔딩 음악)                          ║
+  ║     - ending-dark.mp3 (어두운 엔딩 음악)                        ║
+  ║  3. 또는 게임 내 설정에서 직접 파일을 선택할 수 있습니다        ║
+  ╠════════════════════════════════════════════════════════════════╣
+  ║  🎼 무료 음악 추천 사이트:                                      ║
+  ║  - https://pixabay.com/music/ (로열티 프리)                    ║
+  ║  - https://freemusicarchive.org/ (CC 라이선스)                 ║
+  ║  - https://incompetech.com/ (Kevin MacLeod 음악)               ║
+  ║  검색어: fantasy, medieval, fairy tale, orchestral             ║
+  ╚════════════════════════════════════════════════════════════════╝
+  -->
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // ===== AUDIO MANAGER =====
+    class AudioManager {
+      constructor() {
+        this.bgMusic = null;
+        this.endingGoodMusic = null;
+        this.endingDarkMusic = null;
+        this.currentMusic = null;
+        
+        this.isMuted = false;
+        this.bgVolume = 0.4;
+        this.sfxVolume = 0.5;
+        this.speechSynth = window.speechSynthesis;
+        this.isNarrating = false;
+        this.musicLoaded = false;
+        
+        // Try to load local MP3 files
+        this.initLocalMusic();
+        this.initSoundEffects();
+      }
+
+      initLocalMusic() {
+        // 기본 배경음악 (같은 폴더의 bgm.mp3)
+        this.bgMusic = new Audio();
+        this.bgMusic.loop = true;
+        this.bgMusic.volume = this.bgVolume;
+        
+        // 로컬 파일 시도
+        this.bgMusic.src = 'bgm.mp3';
+        this.bgMusic.onerror = () => {
+          console.log('💡 Tip: bgm.mp3 파일을 이 HTML과 같은 폴더에 넣으면 배경음악이 재생됩니다.');
+          this.musicLoaded = false;
+        };
+        this.bgMusic.oncanplaythrough = () => {
+          this.musicLoaded = true;
+          console.log('🎵 배경음악 로드 완료!');
+        };
+
+        // 엔딩 음악들 (선택사항)
+        this.endingGoodMusic = new Audio('ending-good.mp3');
+        this.endingGoodMusic.volume = this.bgVolume;
+        
+        this.endingDarkMusic = new Audio('ending-dark.mp3');
+        this.endingDarkMusic.volume = this.bgVolume;
+      }
+
+      // 사용자가 직접 파일 선택
+      loadCustomMusic(file, type = 'bgm') {
+        const url = URL.createObjectURL(file);
+        
+        if (type === 'bgm') {
+          this.bgMusic.src = url;
+          this.bgMusic.load();
+          this.musicLoaded = true;
+          console.log('🎵 커스텀 배경음악 로드:', file.name);
+        } else if (type === 'ending-good') {
+          this.endingGoodMusic.src = url;
+          this.endingGoodMusic.load();
+        } else if (type === 'ending-dark') {
+          this.endingDarkMusic.src = url;
+          this.endingDarkMusic.load();
+        }
+        
+        return true;
+      }
+
+      initSoundEffects() {
+        this.audioContext = null;
+        try {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          console.log('Web Audio API not supported');
+        }
+      }
+
+      playTone(frequency, duration, type = 'sine', volume = 0.3) {
+        if (this.isMuted || !this.audioContext) return;
+        
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+        }
+
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        oscillator.frequency.value = frequency;
+        oscillator.type = type;
+        
+        gainNode.gain.setValueAtTime(volume * this.sfxVolume, this.audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+        
+        oscillator.start(this.audioContext.currentTime);
+        oscillator.stop(this.audioContext.currentTime + duration);
+      }
+
+      playClick() {
+        this.playTone(800, 0.1, 'sine', 0.2);
+        setTimeout(() => this.playTone(1000, 0.1, 'sine', 0.15), 50);
+      }
+
+      playChoice() {
+        this.playTone(400, 0.15, 'triangle', 0.3);
+        setTimeout(() => this.playTone(500, 0.15, 'triangle', 0.25), 100);
+        setTimeout(() => this.playTone(600, 0.2, 'triangle', 0.2), 200);
+      }
+
+      playTransition() {
+        this.playTone(300, 0.3, 'sine', 0.2);
+        setTimeout(() => this.playTone(400, 0.3, 'sine', 0.15), 150);
+      }
+
+      playDarkEnding() {
+        // 커스텀 엔딩 음악이 있으면 재생
+        if (this.endingDarkMusic.src && !this.endingDarkMusic.error) {
+          this.fadeOutCurrentMusic();
+          setTimeout(() => {
+            this.endingDarkMusic.play().catch(() => {});
+            this.currentMusic = this.endingDarkMusic;
+          }, 1000);
+        }
+        // 기본 효과음
+        this.playTone(200, 0.5, 'sawtooth', 0.2);
+        setTimeout(() => this.playTone(150, 0.5, 'sawtooth', 0.15), 300);
+        setTimeout(() => this.playTone(100, 0.8, 'sawtooth', 0.1), 600);
+      }
+
+      playGoodEnding() {
+        // 커스텀 엔딩 음악이 있으면 재생
+        if (this.endingGoodMusic.src && !this.endingGoodMusic.error) {
+          this.fadeOutCurrentMusic();
+          setTimeout(() => {
+            this.endingGoodMusic.play().catch(() => {});
+            this.currentMusic = this.endingGoodMusic;
+          }, 1000);
+        }
+        // 기본 효과음
+        const notes = [523, 659, 784, 1047];
+        notes.forEach((freq, i) => {
+          setTimeout(() => this.playTone(freq, 0.3, 'sine', 0.25), i * 150);
+        });
+      }
+
+      playInnerThought() {
+        this.playTone(600, 0.4, 'sine', 0.1);
+        setTimeout(() => this.playTone(650, 0.3, 'sine', 0.08), 200);
+      }
+
+      fadeOutCurrentMusic() {
+        if (this.currentMusic) {
+          const fadeOut = setInterval(() => {
+            if (this.currentMusic.volume > 0.1) {
+              this.currentMusic.volume -= 0.1;
+            } else {
+              this.currentMusic.pause();
+              this.currentMusic.volume = this.bgVolume;
+              clearInterval(fadeOut);
+            }
+          }, 100);
+        }
+      }
+
+      async playBgMusic() {
+        if (this.isMuted || !this.musicLoaded) return;
+        try {
+          this.bgMusic.volume = this.bgVolume;
+          await this.bgMusic.play();
+          this.currentMusic = this.bgMusic;
+        } catch (e) {
+          console.log('배경음악 재생 대기 중...');
+        }
+      }
+
+      pauseBgMusic() {
+        if (this.bgMusic) this.bgMusic.pause();
+        if (this.currentMusic) this.currentMusic.pause();
+      }
+
+      resumeBgMusic() {
+        if (this.bgMusic && this.musicLoaded) {
+          this.bgMusic.play().catch(() => {});
+          this.currentMusic = this.bgMusic;
+        }
+      }
+
+      setBgVolume(volume) {
+        this.bgVolume = volume;
+        if (this.bgMusic) this.bgMusic.volume = volume;
+        if (this.endingGoodMusic) this.endingGoodMusic.volume = volume;
+        if (this.endingDarkMusic) this.endingDarkMusic.volume = volume;
+      }
+
+      setSfxVolume(volume) {
+        this.sfxVolume = volume;
+      }
+
+      speak(text, onEnd = null) {
+        if (this.isMuted || !this.speechSynth) return;
+        
+        this.stopSpeaking();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 0.8;
+        
+        const voices = this.speechSynth.getVoices();
+        const preferredVoice = voices.find(v => 
+          v.lang.includes('en') && v.name.toLowerCase().includes('female')
+        ) || voices.find(v => v.lang.includes('en-US')) || voices[0];
+        
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        utterance.onstart = () => { this.isNarrating = true; };
+        utterance.onend = () => { this.isNarrating = false; if (onEnd) onEnd(); };
+        utterance.onerror = () => { this.isNarrating = false; };
+
+        this.speechSynth.speak(utterance);
+      }
+
+      stopSpeaking() {
+        if (this.speechSynth) this.speechSynth.cancel();
+        this.isNarrating = false;
+      }
+
+      toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (this.isMuted) {
+          this.pauseBgMusic();
+          this.stopSpeaking();
+        } else {
+          this.resumeBgMusic();
+        }
+        return this.isMuted;
+      }
+
+      getMusicStatus() {
+        return {
+          loaded: this.musicLoaded,
+          playing: this.bgMusic && !this.bgMusic.paused,
+          fileName: this.bgMusic?.src?.split('/').pop() || 'None'
+        };
+      }
+    }
+
+    const audioManager = new AudioManager();
+
+    // ===== STORY DATA (간략화) =====
+    const storyData = {
+      prologue: {
+        id: 'prologue', type: 'prologue',
+        text: "Before we begin, consider this puzzle:",
+        puzzle: "In the original Grimm fairy tale, Snow White—the symbol of pure goodness—watches silently as the Queen is forced to dance in red-hot iron shoes until she dies. She does not intervene. She does not show mercy. Why?",
+        next: 'prologue2'
+      },
+      prologue2: {
+        id: 'prologue2', type: 'narration',
+        text: "Perhaps her 'goodness' was never what it seemed. In the fairy tale's absolute monarchy, the Queen stood above all laws. Three times she tried to kill Snow White—through the huntsman, the poisoned comb, and the poisoned apple—and no court could stop her.",
+        next: 'prologue3'
+      },
+      prologue3: {
+        id: 'prologue3', type: 'narration',
+        text: "When you have no legal protection, no power, no allies—what choice do you have but to be 'good'? Kindness becomes survival. Gentleness becomes strategy. And perhaps, deep inside, you dream of the day when the positions will be reversed...",
+        next: 'start'
+      },
+      start: {
+        id: 'start', type: 'narration',
+        text: "Once upon a time... Snow White fled from the kingdom to escape the jealous Queen. She survived three assassination attempts. Now, she is about to marry the prince. And the Queen who tormented her kneels before her, awaiting judgment.",
+        next: 'scene1'
+      },
+      scene1: {
+        id: 'scene1', type: 'narration',
+        text: "The Queen enters the grand hall. Hundreds watch in silence. For years, this woman held absolute power. Now she kneels before the girl she tried to destroy.",
+        next: 'inner1'
+      },
+      inner1: {
+        id: 'inner1', type: 'inner_thought',
+        text: "Snow White feels something unfamiliar rising in her chest. Is it justice? Satisfaction? Or something she's been suppressing for years?",
+        next: 'scene2'
+      },
+      scene2: {
+        id: 'scene2', type: 'narration',
+        text: 'The Prince whispers: "You were her victim. No court could touch her then—but now, you ARE the court. The choice is yours."',
+        next: 'inner2'
+      },
+      inner2: {
+        id: 'inner2', type: 'inner_thought',
+        text: "For the first time in her life, Snow White holds power over someone who once held power over her. Was her goodness real? Or was it just... waiting?",
+        next: 'choice1'
+      },
+      choice1: {
+        id: 'choice1', type: 'choice',
+        question: "The power dynamics have completely reversed. What will Snow White do?",
+        context: "This moment will reveal whether her 'goodness' was genuine—or a survival strategy.",
+        options: [
+          { label: "A. Give the order to start the punishment", subtext: "Make the Queen pay", next: 'punish1' },
+          { label: "B. Interrogate the Queen first", subtext: "Understand before judging", next: 'interrogate1' }
+        ]
+      },
+      
+      // Punishment Path
+      punish1: {
+        id: 'punish1', type: 'narration',
+        text: 'The crowd erupts: "Burn her!" The Prince nods: "Just give the word."',
+        next: 'choice2'
+      },
+      choice2: {
+        id: 'choice2', type: 'choice',
+        question: "The law decrees death by dancing in hot-iron shoes. What should Snow White do?",
+        options: [
+          { label: "A. Nod coldly—politically necessary", next: 'ending_machiavelli' },
+          { label: "B. Demand harder punishment", next: 'ending_cynicism' }
+        ]
+      },
+      ending_machiavelli: {
+        id: 'ending_machiavelli', type: 'ending', framework: 'machiavellian', endingType: 'dark',
+        text: "Snow White nods without emotion. The Queen must die—not from vengeance, but necessity. Her kingdom prospers under firm rule, but she sleeps alone, surrounded by fear rather than love.",
+        analysis: "Machiavellian Realism: Her goodness was a rational response to powerlessness. Once she gained power, necessity replaced kindness.",
+        retryPoints: ['choice2', 'choice1']
+      },
+      ending_cynicism: {
+        id: 'ending_cynicism', type: 'ending', framework: 'dogma', endingType: 'dark',
+        text: "The Queen dies in atrocious agony while Snow White watches. From that day, executions become daily spectacles. She became the hammer. The old stories that called her 'good' now seem like bitter jokes.",
+        analysis: "Dogma/Cynicism: Goodness was an illusion—a tactic of the weak. The victim became the victimizer.",
+        retryPoints: ['choice2', 'choice1']
+      },
+
+      // Interrogation Path
+      interrogate1: {
+        id: 'interrogate1', type: 'narration',
+        text: 'Snow White raises her hand, silencing the crowd. "Before judgment—why did you try to kill me? Three times. Why?"',
+        next: 'interrogate2'
+      },
+      interrogate2: {
+        id: 'interrogate2', type: 'narration',
+        text: 'The Queen looks up, surprised. "I was... jealous. I felt alone. I thought everyone would abandon me for you."',
+        next: 'choice_interrogate'
+      },
+      choice_interrogate: {
+        id: 'choice_interrogate', type: 'choice',
+        question: "Is this the complete truth?",
+        options: [
+          { label: "A. Accept and show mercy", subtext: "Let cosmic justice decide", next: 'ending_karma' },
+          { label: "B. Keep questioning", subtext: "There must be a deeper cause", next: 'emotionalism1' }
+        ]
+      },
+      ending_karma: {
+        id: 'ending_karma', type: 'ending', framework: 'karma', endingType: 'bittersweet',
+        text: "Snow White banishes the Queen to the forest. Years later, the Queen dies alone. Snow White feels sadness and peace—she chose not to be the instrument of vengeance.",
+        analysis: "Karma: She trusted cosmic justice, maintaining her moral identity by outsourcing punishment to the universe.",
+        retryPoints: ['choice_interrogate', 'choice1']
+      },
+
+      // Emotionalism Path
+      emotionalism1: {
+        id: 'emotionalism1', type: 'narration',
+        text: '"Jealousy doesn\'t appear from nowhere. Who taught you that beauty was everything?"',
+        next: 'emotionalism2'
+      },
+      emotionalism2: {
+        id: 'emotionalism2', type: 'narration',
+        text: 'The Queen\'s eyes fill with tears. She points at the mirrors. "It was them... the magic mirror. Every day it told me who was fairest. It made me into this monster."',
+        next: 'choice_emotionalism'
+      },
+      choice_emotionalism: {
+        id: 'choice_emotionalism', type: 'choice',
+        question: "Snow White sees the full picture—the Queen, the mirrors, the system.",
+        options: [
+          { label: "A. Forgive but keep mirrors", next: 'ending_incomplete' },
+          { label: "B. Destroy mirrors but stay angry", next: 'ending_partial' },
+          { label: "C. Forgive AND destroy mirrors", next: 'ending_best' }
+        ]
+      },
+      ending_incomplete: {
+        id: 'ending_incomplete', type: 'ending', framework: 'emotionalism', endingType: 'bittersweet',
+        text: "Snow White embraces the Queen. But the mirrors remain. Years later, she catches herself asking who is fairest... The cycle was never truly broken.",
+        analysis: "Incomplete Moral Idealism: Forgiveness was genuine, but the structural cause remained untreated.",
+        retryPoints: ['choice_emotionalism', 'choice1']
+      },
+      ending_partial: {
+        id: 'ending_partial', type: 'ending', framework: 'emotionalism', endingType: 'neutral',
+        text: "Every mirror is destroyed. No one will ever be told they must be 'the fairest.' But Snow White cannot forgive. Her reign is just—but her heart remains scarred.",
+        analysis: "Partial victory: She fixed the system but couldn't fully heal herself.",
+        retryPoints: ['choice_emotionalism', 'choice1']
+      },
+      ending_best: {
+        id: 'ending_best', type: 'ending', framework: 'emotionalism', endingType: 'best',
+        text: "Snow White helps the Queen stand. Together, they shatter the great mirror. Mirrors are replaced with windows—symbols of looking outward. The Queen becomes a teacher. Snow White rules not because she must be 'good' to survive, but because she freely chooses to be.",
+        analysis: "Full Moral Idealism: Her goodness was not an illusion—it was a seed that, freed from fear, could finally bloom.",
+        retryPoints: ['choice_emotionalism', 'choice1']
+      }
+    };
+
+    const frameworkInfo = {
+      emotionalism: { name: "Moral Idealism", subtitle: "Goodness as Internal Virtue", color: "emerald", icon: "💚" },
+      karma: { name: "Karma", subtitle: "Goodness as Cosmic Balance", color: "violet", icon: "☯️" },
+      dogma: { name: "Cynicism", subtitle: "Goodness as Illusion", color: "red", icon: "🎭" },
+      machiavellian: { name: "Machiavellian", subtitle: "Goodness as Performance", color: "slate", icon: "👑" }
+    };
+
+    const choiceLabels = {
+      choice1: "First Choice", choice2: "Punishment", choice_interrogate: "Understanding", choice_emotionalism: "Root Cause"
+    };
+
+    // ===== AUDIO CONTROLS =====
+    function AudioControls({ audioManager, isNarrating, onNarrateToggle, onMusicLoad }) {
+      const [isMuted, setIsMuted] = useState(false);
+      const [bgVolume, setBgVolumeState] = useState(0.4);
+      const [sfxVolume, setSfxVolumeState] = useState(0.5);
+      const [autoNarrate, setAutoNarrate] = useState(true);
+      const [showControls, setShowControls] = useState(false);
+      const [musicStatus, setMusicStatus] = useState({ loaded: false, fileName: 'None' });
+
+      useEffect(() => {
+        const interval = setInterval(() => {
+          setMusicStatus(audioManager.getMusicStatus());
+        }, 1000);
+        return () => clearInterval(interval);
+      }, []);
+
+      const handleFileSelect = (e, type) => {
+        const file = e.target.files[0];
+        if (file && file.type.includes('audio')) {
+          audioManager.loadCustomMusic(file, type);
+          if (type === 'bgm') {
+            onMusicLoad();
+            setMusicStatus({ loaded: true, fileName: file.name });
+          }
+        }
+      };
+
+      return (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="flex items-center gap-2">
+            {isNarrating && (
+              <div className="flex items-center gap-1 bg-purple-600/80 px-3 py-2 rounded-full">
+                <div className="flex gap-0.5 items-end h-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="w-1 bg-white rounded-full sound-wave" style={{height: '4px'}} />
+                  ))}
+                </div>
+                <span className="text-white text-xs ml-1">Speaking...</span>
+              </div>
+            )}
+            
+            <button
+              onClick={() => { setIsMuted(audioManager.toggleMute()); }}
+              className="bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-full transition-all"
+            >
+              <span className="text-xl">{isMuted ? '🔇' : '🔊'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowControls(!showControls)}
+              className="bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-full transition-all"
+            >
+              <span className="text-xl">⚙️</span>
+            </button>
+          </div>
+
+          {showControls && (
+            <div className="absolute top-14 right-0 bg-slate-800/95 backdrop-blur-sm rounded-xl p-4 w-72 border border-purple-500/30 shadow-2xl">
+              <h3 className="text-white font-medium mb-4 text-sm">🎵 Audio Settings</h3>
+              
+              {/* Music Status */}
+              <div className="mb-4 p-2 bg-slate-700/50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-purple-300 text-xs">Background Music</span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${musicStatus.loaded ? 'bg-green-600' : 'bg-red-600'}`}>
+                    {musicStatus.loaded ? '✓ Loaded' : '✗ No file'}
+                  </span>
+                </div>
+                <p className="text-white/60 text-xs truncate mb-2">{musicStatus.fileName}</p>
+                
+                {/* File selector */}
+                <div className="file-input-wrapper w-full">
+                  <button className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 px-3 rounded-lg text-xs transition-all">
+                    📁 Select MP3 File
+                  </button>
+                  <input type="file" accept="audio/mp3,audio/*" onChange={(e) => handleFileSelect(e, 'bgm')} />
+                </div>
+              </div>
+
+              {/* Volume Controls */}
+              <div className="mb-3">
+                <label className="text-purple-300 text-xs block mb-1">🎵 Music Volume</label>
+                <input
+                  type="range" min="0" max="1" step="0.1" value={bgVolume}
+                  onChange={(e) => { const v = parseFloat(e.target.value); setBgVolumeState(v); audioManager.setBgVolume(v); }}
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              <div className="mb-3">
+                <label className="text-purple-300 text-xs block mb-1">🔊 Effects Volume</label>
+                <input
+                  type="range" min="0" max="1" step="0.1" value={sfxVolume}
+                  onChange={(e) => { const v = parseFloat(e.target.value); setSfxVolumeState(v); audioManager.setSfxVolume(v); }}
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* Auto Narration */}
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-purple-300 text-xs">🗣️ Auto Voice</label>
+                <button
+                  onClick={() => { setAutoNarrate(!autoNarrate); onNarrateToggle(!autoNarrate); if (autoNarrate) audioManager.stopSpeaking(); }}
+                  className={`w-12 h-6 rounded-full transition-all ${autoNarrate ? 'bg-purple-600' : 'bg-slate-600'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full transition-all transform ${autoNarrate ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              {isNarrating && (
+                <button onClick={() => audioManager.stopSpeaking()} className="w-full bg-red-600/50 hover:bg-red-600/70 text-white py-2 px-3 rounded-lg text-xs">
+                  ⏹ Stop Voice
+                </button>
+              )}
+
+              {/* Optional ending music */}
+              <details className="mt-3 text-xs">
+                <summary className="text-purple-400 cursor-pointer">+ Optional: Ending Music</summary>
+                <div className="mt-2 space-y-2">
+                  <div className="file-input-wrapper w-full">
+                    <button className="w-full bg-emerald-600/50 hover:bg-emerald-600/70 text-white py-1.5 px-2 rounded text-xs">
+                      🎵 Good Ending MP3
+                    </button>
+                    <input type="file" accept="audio/*" onChange={(e) => handleFileSelect(e, 'ending-good')} />
+                  </div>
+                  <div className="file-input-wrapper w-full">
+                    <button className="w-full bg-red-600/50 hover:bg-red-600/70 text-white py-1.5 px-2 rounded text-xs">
+                      🎵 Dark Ending MP3
+                    </button>
+                    <input type="file" accept="audio/*" onChange={(e) => handleFileSelect(e, 'ending-dark')} />
+                  </div>
+                </div>
+              </details>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ===== MAIN COMPONENT =====
+    function SnowWhiteStory() {
+      const [currentNode, setCurrentNode] = useState('prologue');
+      const [history, setHistory] = useState([]);
+      const [isTransitioning, setIsTransitioning] = useState(false);
+      const [showAnalysis, setShowAnalysis] = useState(false);
+      const [isNarrating, setIsNarrating] = useState(false);
+      const [autoNarrate, setAutoNarrate] = useState(true);
+      const [musicStarted, setMusicStarted] = useState(false);
+
+      const node = storyData[currentNode];
+
+      const startMusic = useCallback(() => {
+        if (!musicStarted) {
+          audioManager.playBgMusic();
+          setMusicStarted(true);
+        }
+      }, [musicStarted]);
+
+      const handleMusicLoad = () => {
+        if (musicStarted) {
+          audioManager.playBgMusic();
+        }
+      };
+
+      useEffect(() => {
+        if (!autoNarrate) return;
+        
+        let text = node.puzzle || node.question || node.text || '';
+        if (text) {
+          const timer = setTimeout(() => {
+            setIsNarrating(true);
+            audioManager.speak(text, () => setIsNarrating(false));
+          }, 400);
+          return () => clearTimeout(timer);
+        }
+      }, [currentNode, autoNarrate]);
+
+      useEffect(() => {
+        if (node.type === 'inner_thought') audioManager.playInnerThought();
+        else if (node.type === 'ending') {
+          if (node.endingType === 'best') audioManager.playGoodEnding();
+          else if (node.endingType === 'dark') audioManager.playDarkEnding();
+        }
+      }, [currentNode]);
+
+      const handleNext = (nextId) => {
+        startMusic();
+        audioManager.playClick();
+        audioManager.stopSpeaking();
+        setIsTransitioning(true);
+        setShowAnalysis(false);
+        setTimeout(() => {
+          setHistory([...history, currentNode]);
+          setCurrentNode(nextId);
+          setIsTransitioning(false);
+          audioManager.playTransition();
+        }, 300);
+      };
+
+      const handleChoice = (nextId) => {
+        startMusic();
+        audioManager.playChoice();
+        audioManager.stopSpeaking();
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setHistory([...history, currentNode]);
+          setCurrentNode(nextId);
+          setIsTransitioning(false);
+        }, 300);
+      };
+
+      const handleRetry = (point) => {
+        audioManager.playClick();
+        audioManager.stopSpeaking();
+        audioManager.resumeBgMusic();
+        setIsTransitioning(true);
+        setTimeout(() => {
+          const idx = history.findIndex(h => h === point);
+          setHistory(idx !== -1 ? history.slice(0, idx) : []);
+          setCurrentNode(point);
+          setIsTransitioning(false);
+        }, 300);
+      };
+
+      const handleRestart = () => {
+        audioManager.playClick();
+        audioManager.stopSpeaking();
+        audioManager.resumeBgMusic();
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setHistory([]);
+          setCurrentNode('prologue');
+          setIsTransitioning(false);
+        }, 300);
+      };
+
+      const getEndingStyle = (t) => ({
+        best: 'from-emerald-900 to-emerald-700 border-emerald-400',
+        dark: 'from-red-900 to-red-700 border-red-400',
+        bittersweet: 'from-amber-900 to-amber-700 border-amber-400',
+        neutral: 'from-slate-800 to-slate-600 border-slate-400'
+      }[t] || 'from-gray-900 to-gray-700 border-gray-400');
+
+      const getEndingLabel = (t) => ({
+        best: '✨ True Ending', dark: '💀 Dark Ending', bittersweet: '🌅 Bittersweet', neutral: '⚖️ Neutral'
+      }[t] || 'The End');
+
+      const getFrameworkColor = (f) => ({
+        emerald: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300',
+        violet: 'bg-violet-500/20 border-violet-500/50 text-violet-300',
+        red: 'bg-red-500/20 border-red-500/50 text-red-300',
+        slate: 'bg-slate-500/20 border-slate-500/50 text-slate-300'
+      }[frameworkInfo[f]?.color] || 'bg-slate-500/20 border-slate-500/50 text-slate-300');
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-4">
+          <AudioControls 
+            audioManager={audioManager} 
+            isNarrating={isNarrating}
+            onNarrateToggle={setAutoNarrate}
+            onMusicLoad={handleMusicLoad}
+          />
+
+          {/* Stars */}
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            {[...Array(50)].map((_, i) => (
+              <div key={i} className="absolute w-1 h-1 bg-white rounded-full opacity-40 animate-pulse"
+                style={{ left: `${Math.random()*100}%`, top: `${Math.random()*100}%`, animationDelay: `${Math.random()*3}s` }} />
+            ))}
+          </div>
+
+          {/* Header */}
+          <div className="text-center mb-6 relative z-10">
+            <h1 className="text-4xl md:text-5xl font-serif text-white mb-2">🪞 Snow White</h1>
+            <p className="text-purple-300 text-sm">An Interactive Tale of Power and Forgiveness</p>
+            <p className="text-purple-400/60 text-xs italic">"What happens to 'goodness' when power reverses?"</p>
+          </div>
+
+          {/* Content */}
+          <div className={`max-w-2xl w-full transition-all duration-300 relative z-10 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100'}`}>
+            
+            {node.type === 'prologue' && (
+              <div className="bg-slate-800/90 rounded-2xl p-6 md:p-8 border border-amber-500/30 shadow-2xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-amber-400 text-2xl">📜</span>
+                  <span className="text-amber-400 font-medium uppercase text-sm">The Puzzle</span>
+                </div>
+                <p className="text-purple-300 mb-4">{node.text}</p>
+                <blockquote className="border-l-4 border-amber-500 pl-4 py-2 mb-6 bg-amber-900/20 rounded-r-lg">
+                  <p className="text-white text-lg font-serif italic">{node.puzzle}</p>
+                </blockquote>
+                <button onClick={() => handleNext(node.next)} className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white py-3 px-6 rounded-xl font-medium shadow-lg">
+                  🎧 Begin Journey →
+                </button>
+              </div>
+            )}
+
+            {node.type === 'inner_thought' && (
+              <div className="bg-purple-900/50 rounded-2xl p-6 md:p-8 border border-purple-400/30 shadow-2xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-purple-300 text-2xl">💭</span>
+                  <span className="text-purple-300 font-medium uppercase text-sm">Inner Voice</span>
+                </div>
+                <p className="text-purple-100 text-lg font-serif italic mb-8">{node.text}</p>
+                <button onClick={() => handleNext(node.next)} className="w-full bg-gradient-to-r from-purple-600 to-violet-600 text-white py-3 px-6 rounded-xl font-medium shadow-lg">
+                  Continue →
+                </button>
+              </div>
+            )}
+
+            {node.type === 'narration' && (
+              <div className="bg-slate-800/90 rounded-2xl p-6 md:p-8 border border-purple-500/30 shadow-2xl">
+                <p className="text-white text-lg font-serif mb-8">{node.text}</p>
+                <button onClick={() => handleNext(node.next)} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-6 rounded-xl font-medium shadow-lg">
+                  Continue →
+                </button>
+              </div>
+            )}
+
+            {node.type === 'choice' && (
+              <div className="bg-slate-800/90 rounded-2xl p-6 md:p-8 border border-amber-500/30 shadow-2xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-amber-400 text-2xl">⚔️</span>
+                  <span className="text-amber-400 font-medium uppercase text-sm">Decision</span>
+                </div>
+                <p className="text-white text-lg font-serif mb-3">{node.question}</p>
+                {node.context && <p className="text-purple-300/80 text-sm italic mb-6 border-l-2 border-purple-500/50 pl-3">{node.context}</p>}
+                <div className="space-y-3">
+                  {node.options.map((opt, i) => (
+                    <button key={i} onClick={() => handleChoice(opt.next)}
+                      className="w-full text-left bg-slate-700 hover:bg-amber-700 text-white py-4 px-5 rounded-xl border border-slate-500/50 hover:border-amber-400/50 shadow-md group">
+                      <div className="font-medium">{opt.label}</div>
+                      {opt.subtext && <div className="text-sm text-slate-400 group-hover:text-amber-200 mt-1 italic">{opt.subtext}</div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {node.type === 'ending' && (
+              <div className={`rounded-2xl border-2 shadow-2xl overflow-hidden bg-gradient-to-br ${getEndingStyle(node.endingType)}`}>
+                {node.framework && (
+                  <div className={`px-4 py-3 border-b border-white/10 ${getFrameworkColor(node.framework)}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{frameworkInfo[node.framework].icon}</span>
+                      <div>
+                        <div className="font-bold text-sm">{frameworkInfo[node.framework].name}</div>
+                        <div className="text-xs opacity-80">{frameworkInfo[node.framework].subtitle}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="p-6 md:p-8">
+                  <div className="text-center mb-4">
+                    <span className="text-3xl block mb-2">{node.endingType === 'best' ? '👑' : node.endingType === 'dark' ? '⚰️' : '🌅'}</span>
+                    <span className="text-white font-bold text-xl uppercase">{getEndingLabel(node.endingType)}</span>
+                  </div>
+                  <p className="text-white text-lg font-serif mb-6 text-center">{node.text}</p>
+                  
+                  {node.analysis && (
+                    <div className="mb-6">
+                      <button onClick={() => { setShowAnalysis(!showAnalysis); audioManager.playClick(); }}
+                        className="w-full bg-white/10 hover:bg-white/20 text-white py-2 px-4 rounded-lg text-sm border border-white/20">
+                        🔍 {showAnalysis ? 'Hide' : 'Show'} Analysis
+                      </button>
+                      {showAnalysis && (
+                        <div className="mt-4 p-4 bg-black/30 rounded-xl border border-white/10">
+                          <p className="text-white/70 text-sm">{node.analysis}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="border-t border-white/20 pt-6">
+                    <p className="text-white/70 text-center mb-4 text-sm">Try different paths:</p>
+                    <div className="flex flex-wrap gap-2 justify-center mb-4">
+                      {node.retryPoints.map((p, i) => (
+                        <button key={i} onClick={() => handleRetry(p)}
+                          className="bg-white/10 hover:bg-white/20 text-white py-2 px-4 rounded-lg text-sm border border-white/20">
+                          ↩ {choiceLabels[p] || p}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={handleRestart} className="w-full bg-white/20 hover:bg-white/30 text-white py-3 px-6 rounded-xl border border-white/30">
+                      🔄 Start Over
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Journey */}
+          {history.length > 0 && (
+            <div className="mt-6 flex items-center gap-1 text-purple-400/60 text-xs relative z-10">
+              <span>Journey:</span>
+              {history.slice(-6).map((h, i) => (
+                <span key={i} className="bg-purple-900/50 px-2 py-1 rounded">
+                  {storyData[h]?.type === 'choice' ? '⚔️' : storyData[h]?.type === 'inner_thought' ? '💭' : '📖'}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <footer className="mt-6 text-purple-400/50 text-xs text-center relative z-10">
+            🎵 Add bgm.mp3 to the same folder for music • Based on Brothers Grimm
+          </footer>
+        </div>
+      );
+    }
+
+    window.speechSynthesis?.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    ReactDOM.createRoot(document.getElementById('root')).render(<SnowWhiteStory />);
+  </script>
+</body>
+</html>
