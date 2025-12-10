@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snow White - Structural Critique</title>
+  <script src="https://code.responsivevoice.org/responsivevoice.js?key=pxfSy7wn"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
@@ -59,11 +60,6 @@
     .text { font-size: 1.15rem; line-height: 1.7; margin-bottom: 20px; }
     .text.italic { font-style: italic; color: #e9d5ff; }
 
-    .context {
-      font-size: 0.85rem; color: #c4b5fd; font-style: italic;
-      padding-left: 12px; border-left: 2px solid rgba(139, 92, 246, 0.5); margin-bottom: 20px;
-    }
-
     .btn {
       display: block; width: 100%; padding: 14px 20px; border: none; border-radius: 12px;
       font-family: inherit; font-size: 1rem; cursor: pointer; transition: all 0.2s; text-align: left;
@@ -116,15 +112,29 @@
     .audio-controls { position: fixed; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 100; }
     .audio-btn { background: rgba(30, 41, 59, 0.9); border: none; padding: 10px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; transition: background 0.2s; }
     .audio-btn:hover { background: rgba(51, 65, 85, 0.9); }
-    .audio-panel { position: absolute; top: 50px; right: 0; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 16px; width: 260px; display: none; }
+    .audio-btn.active { background: rgba(147, 51, 234, 0.7); }
+    .audio-panel { position: absolute; top: 50px; right: 0; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 16px; width: 300px; display: none; }
     .audio-panel.show { display: block; }
     .audio-panel h4 { margin-bottom: 12px; font-size: 0.9rem; }
     .audio-panel label { display: block; font-size: 0.75rem; color: #c4b5fd; margin-bottom: 4px; }
     .audio-panel input[type="range"] { width: 100%; margin-bottom: 12px; }
+    .audio-panel select { width: 100%; padding: 8px; margin-bottom: 12px; border-radius: 6px; background: #1e293b; color: white; border: 1px solid rgba(139, 92, 246, 0.3); font-size: 0.8rem; }
     .audio-panel .file-btn { width: 100%; padding: 10px; background: #7c3aed; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-bottom: 8px; }
     .audio-panel .file-btn:hover { background: #8b5cf6; }
     .audio-panel .status { font-size: 0.7rem; color: #94a3b8; margin-bottom: 8px; }
     .audio-panel .status.loaded { color: #4ade80; }
+    .audio-panel .section-title { font-size: 0.8rem; color: #a78bfa; margin: 16px 0 8px 0; padding-top: 12px; border-top: 1px solid rgba(139, 92, 246, 0.2); }
+    .voice-info { font-size: 0.75rem; color: #6ee7b7; margin-bottom: 10px; padding: 8px 12px; background: rgba(16, 185, 129, 0.15); border-radius: 8px; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .voice-info .badge { display: inline-block; background: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; margin-left: 6px; }
+
+    .tts-indicator {
+      position: fixed; bottom: 20px; right: 20px; background: rgba(147, 51, 234, 0.9);
+      padding: 10px 16px; border-radius: 20px; font-size: 0.8rem; display: none;
+      align-items: center; gap: 8px; z-index: 100;
+    }
+    .tts-indicator.show { display: flex; }
+    .tts-indicator .pulse { width: 8px; height: 8px; background: #a7f3d0; border-radius: 50%; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
     .footer { text-align: center; margin-top: 30px; font-size: 0.75rem; color: rgba(167, 139, 250, 0.4); }
     .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
@@ -135,19 +145,52 @@
 </head>
 <body>
   <div class="stars" id="stars"></div>
+  
   <div class="audio-controls">
+    <button class="audio-btn active" id="ttsBtn" title="Narration ON">🎙️</button>
     <button class="audio-btn" id="muteBtn" title="Mute">🔊</button>
     <button class="audio-btn" id="settingsBtn" title="Settings">⚙️</button>
     <div class="audio-panel" id="audioPanel">
       <h4>🎵 Audio Settings</h4>
+      
+      <div class="section-title">🇬🇧 Premium British Narration</div>
+      <div class="voice-info">
+        🎭 <strong>UK English Female</strong> <span class="badge">Premium</span><br>
+        <span style="font-size: 0.65rem; opacity: 0.8;">High-quality British RP accent</span>
+      </div>
+      <label>Voice Style</label>
+      <select id="voiceSelect">
+        <option value="UK English Female" selected>🇬🇧 UK English Female (Premium)</option>
+        <option value="UK English Male">🇬🇧 UK English Male</option>
+        <option value="Australian Female">🇦🇺 Australian Female</option>
+        <option value="Australian Male">🇦🇺 Australian Male</option>
+        <option value="US English Female">🇺🇸 US English Female</option>
+        <option value="US English Male">🇺🇸 US English Male</option>
+      </select>
+      <label>Speech Rate: <span id="rateValue">0.9</span></label>
+      <input type="range" id="speechRate" min="0.5" max="1.2" step="0.05" value="0.9">
+      <label>Pitch: <span id="pitchValue">1.0</span></label>
+      <input type="range" id="speechPitch" min="0.7" max="1.3" step="0.05" value="1.0">
+      <label>Volume: <span id="ttsVolValue">0.9</span></label>
+      <input type="range" id="ttsVolume" min="0.1" max="1" step="0.1" value="0.9">
+      
+      <div class="section-title">🎵 Background Music</div>
       <div class="status" id="musicStatus">🎵 No music loaded</div>
       <button class="file-btn" onclick="document.getElementById('bgmInput').click()">📁 Select BGM (MP3)</button>
       <input type="file" id="bgmInput" class="hidden-input" accept="audio/*">
       <label>Music Volume</label>
-      <input type="range" id="bgmVolume" min="0" max="1" step="0.1" value="0.4">
+      <input type="range" id="bgmVolume" min="0" max="1" step="0.1" value="0.15">
+      
+      <div class="section-title">🔊 Sound Effects</div>
       <label>Effects Volume</label>
-      <input type="range" id="sfxVolume" min="0" max="1" step="0.1" value="0.5">
+      <input type="range" id="sfxVolume" min="0" max="1" step="0.1" value="0.3">
     </div>
+  </div>
+
+  <div class="tts-indicator" id="ttsIndicator">
+    <div class="pulse"></div>
+    <span>🇬🇧 Speaking...</span>
+    <button onclick="stopSpeaking()" style="background:none;border:none;color:white;cursor:pointer;font-size:1rem;">✕</button>
   </div>
 
   <div class="container">
@@ -158,50 +201,46 @@
     </div>
     <div id="content"></div>
     <div class="journey" id="journey"></div>
-    <p class="footer">🎵 Upload BGM via settings • Based on Brothers Grimm</p>
+    <p class="footer">🇬🇧 Premium British English narration • 🎵 Upload BGM via settings</p>
   </div>
 
   <audio id="bgm" loop></audio>
 
   <script>
+    // ========== STORY DATA ==========
     const story = {
-      // ========== OPENING ==========
       start: {
         type: 'narration',
         text: "The wedding bells ring. Snow White stands beside the Prince as the Queen kneels before them, awaiting punishment. The crowd cheers: 'Good has triumphed! The kind-hearted princess is finally rewarded!'<br><br>But Snow White pauses. She thinks: 'Did I really win because I was good? Or... was it something else?'",
         next: 'rewind_question'
       },
-
       rewind_question: {
         type: 'inner_thought',
         text: "Snow White asks herself: 'What actually saved me? My kindness... or forces beyond my control?'<br><br>Let's rewind and examine what really happened.",
         next: 'path_choice'
       },
-
       path_choice: {
         type: 'choice',
         question: "Choose a moment to rewind and examine:",
         options: [
-          { label: "🤴 PATH A: Rewind to the moment the Prince arrived", next: 'path_a_start' },
-          { label: "🏠 PATH B: Rewind to the dwarfs' cottage", next: 'path_b_start' },
-          { label: "🍎 PATH C: Rewind to the Queen's first disguise", next: 'path_c_start' },
-          { label: "👑 PATH D: Rewind to the wedding ceremony", next: 'path_d_start' }
+          { label: "PATH A: Rewind to the moment the Prince arrived", next: 'path_a_start' },
+          { label: "PATH B: Rewind to the dwarfs' cottage", next: 'path_b_start' },
+          { label: "PATH C: Rewind to the Queen's first disguise", next: 'path_c_start' },
+          { label: "PATH D: Rewind to the wedding ceremony", next: 'path_d_start' }
         ]
       },
 
-      // ========== PATH A: THE PRINCE ==========
+      // PATH A
       path_a_start: {
         type: 'narration',
         text: "The Prince finds Snow White's glass coffin in the forest. The dwarfs tell him: 'She was the kindest person we ever met.'<br><br>The Prince looks at her and thinks: 'She's beautiful. I'll take her to my palace.'<br><br>He orders his servants to carry the coffin. As they lift it, the poisoned apple dislodges. Snow White wakes up.",
         next: 'path_a_realization'
       },
-
       path_a_realization: {
         type: 'inner_thought',
-        text: "Snow White wakes up and realizes: 'I was saved... but not because I was good. The Prince didn't even know me. He just had the power to move my body.'<br><br>What if there was no Prince?",
+        text: "Snow White wakes up and realises: 'I was saved... but not because I was good. The Prince didn't even know me. He just had the power to move my body.'<br><br>What if there was no Prince?",
         next: 'path_a_choice'
       },
-
       path_a_choice: {
         type: 'choice',
         question: "What if there was no Prince?",
@@ -210,27 +249,23 @@
           { label: "A2. Approach a nobleman and propose a strategic marriage", next: 'path_a2_story' }
         ]
       },
-
       path_a1_story: {
         type: 'narration',
-        text: "Years pass. Snow White cooks and cleans for the dwarfs every day. She smiles and never complains.<br><br>One day, a dwarf says: 'You're like a mother to us!' But Snow White thinks: 'I'm 40 years old and still doing unpaid labor. Where is my reward?'",
+        text: "Years pass. Snow White cooks and cleans for the dwarfs every day. She smiles and never complains.<br><br>One day, a dwarf says: 'You're like a mother to us!' But Snow White thinks: 'I'm forty years old and still doing unpaid labour. Where is my reward?'",
         next: 'ending_a1'
       },
-
       ending_a1: {
         type: 'ending',
         endingType: 'critique',
         title: "Love Doesn't Pay Rent",
-        text: "Snow White grows old in the dwarfs' cottage. She was good her entire life. But without political power or wealth, her goodness brought her nothing but survival.<br><br>The dwarfs loved her. But in an economy that values gold over care, her unpaid labor bought her nothing but a roof, not a future.",
+        text: "Snow White grows old in the dwarfs' cottage. She was good her entire life. But without political power or wealth, her goodness brought her nothing but survival.<br><br>The dwarfs loved her. But in an economy that values gold over care, her unpaid labour bought her nothing but a roof, not a future.",
         retryPoints: ['path_a_choice', 'path_choice']
       },
-
       path_a2_story: {
         type: 'narration',
         text: "Snow White travels to a nearby kingdom. She meets a duke and says: 'I am the King's stepdaughter. If you marry me, you gain a claim to the throne.'<br><br>The duke agrees. Not because she's kind—because she's politically useful.",
         next: 'convergence_power'
       },
-
       convergence_power: {
         type: 'convergence',
         convergenceType: 'orange',
@@ -239,31 +274,28 @@
         text: "Snow White now has POWER. She is a duchess with political influence.<br><br>Having experienced powerlessness, what will she do with power?",
         options: [
           { label: "P1. Use power for personal safety only", next: 'ending_power_corrupt' },
-          { label: "🌟 Continue to PATH D: The Wedding", subtext: "Use power to change the system", next: 'path_d_narration', isConvergence: true }
+          { label: "Continue to PATH D: The Wedding", subtext: "Use power to change the system", next: 'path_d_narration', isConvergence: true }
         ]
       },
-
       ending_power_corrupt: {
         type: 'ending',
         endingType: 'critique',
         title: "Becoming the Oppressor",
-        text: "Snow White gives up her goodness and becomes exactly like her stepmother—using power only for self-preservation.<br><br>She realized that in this kingdom, there is only one throne but many mirrors. To survive the structure, she had to abandon goodness and grasp power to become the oppressor.",
+        text: "Snow White gives up her goodness and becomes exactly like her stepmother—using power only for self-preservation.<br><br>She realised that in this kingdom, there is only one throne but many mirrors. To survive the structure, she had to abandon goodness and grasp power to become the oppressor.",
         retryPoints: ['convergence_power', 'path_a_choice', 'path_choice']
       },
 
-      // ========== PATH B: THE COTTAGE ==========
+      // PATH B
       path_b_start: {
         type: 'narration',
-        text: "The dwarfs come home from the mine. Their house is clean, and dinner is ready. They smile: 'You can stay here, Snow White!'<br><br>Snow White is grateful. But then she realizes: 'Wait. I'm doing all the housework. Is this... a job? Or am I just expected to do it for free because I'm a woman?'",
+        text: "The dwarfs come home from the mine. Their house is clean, and dinner is ready. They smile: 'You can stay here, Snow White!'<br><br>Snow White is grateful. But then she realises: 'Wait. I'm doing all the housework. Is this... a job? Or am I just expected to do it for free because I'm a woman?'",
         next: 'path_b_question'
       },
-
       path_b_question: {
         type: 'inner_thought',
         text: "Snow White thinks: 'They're protecting me. But I'm also working for them. Should I ask to be treated as an equal?'",
         next: 'path_b_choice'
       },
-
       path_b_choice: {
         type: 'choice',
         question: "Should Snow White ask for fair treatment?",
@@ -272,30 +304,26 @@
           { label: "B2. Stay silent and keep working", next: 'path_b2_story' }
         ]
       },
-
       path_b1_story: {
         type: 'narration',
-        text: "Snow White says: 'I cook, clean, and mend your clothes. I should get part of the gold you mine.'<br><br>The dwarfs look shocked. One says: 'But you're *family*. Family doesn't charge each other!' Another adds: 'If you want money, you can leave.'",
+        text: "Snow White says: 'I cook, clean, and mend your clothes. I should get part of the gold you mine.'<br><br>The dwarfs look shocked. One says: 'But you're family. Family doesn't charge each other!' Another adds: 'If you want money, you can leave.'",
         next: 'convergence_betrayal'
       },
-
       convergence_betrayal: {
         type: 'convergence',
         convergenceType: 'red',
         icon: '🔄',
         title: 'CONVERGENCE POINT',
-        text: "Snow White is kicked out. Alone in the forest: 'Everyone I trusted exploited me.'<br><br>Economic betrayal → emotional distrust",
+        text: "Snow White is kicked out. Alone in the forest: 'Everyone I trusted exploited me.'<br><br>Economic betrayal leads to emotional distrust.",
         options: [
-          { label: "🌟 Continue to PATH C: The Queen's Disguise", subtext: "Now suspicious of strangers...", next: 'path_c_narration', isConvergence: true }
+          { label: "Continue to PATH C: The Queen's Disguise", subtext: "Now suspicious of strangers...", next: 'path_c_narration', isConvergence: true }
         ]
       },
-
       path_b2_story: {
         type: 'narration',
         text: "Snow White says nothing. She cooks, cleans, smiles. The dwarfs praise her: 'You're so kind and selfless!'<br><br>But inside, Snow White feels hollow. 'I'm not kind. I'm just too scared to ask for what I deserve.'",
         next: 'ending_b2'
       },
-
       ending_b2: {
         type: 'ending',
         endingType: 'critique',
@@ -304,41 +332,36 @@
         retryPoints: ['path_b_choice', 'path_choice']
       },
 
-      // ========== PATH C: THE DISGUISE ==========
+      // PATH C
       path_c_start: {
         type: 'narration',
         text: "An old woman knocks: 'Pretty ribbons for sale!'<br><br>The dwarfs warned: 'Don't open the door!' But Snow White thinks: 'She's just a poor old woman. It would be rude.'<br><br>She opens the door. The Queen strangles her with the ribbon.",
         next: 'path_c_revival'
       },
-
       path_c_narration: {
         type: 'narration',
         text: "An old woman knocks: 'Pretty ribbons for sale!'<br><br>The dwarfs warned: 'Don't open the door!' But Snow White thinks: 'She's just a poor old woman. It would be rude.'<br><br>She opens the door. The Queen strangles her with the ribbon.",
         next: 'path_c_revival'
       },
-
       path_c_revival: {
         type: 'inner_thought',
-        text: "The dwarfs revive her. Snow White realizes: 'My kindness almost killed me. Should I stop trusting people?'",
+        text: "The dwarfs revive her. Snow White realises: 'My kindness almost killed me. Should I stop trusting people?'",
         next: 'path_c_choice'
       },
-
       path_c_choice: {
         type: 'choice',
         question: "How should Snow White respond?",
         options: [
           { label: "C1. Stay kind and give people the benefit of the doubt", next: 'path_c1_story' },
           { label: "C2. Stay kind but become cautious with strangers", next: 'path_c2_story' },
-          { label: "C3. Demand institutional protection from kingdom", next: 'path_c3_story' }
+          { label: "C3. Demand institutional protection from the kingdom", next: 'path_c3_story' }
         ]
       },
-
       path_c1_story: {
         type: 'narration',
         text: "A peasant woman knocks: 'I have a beautiful comb!'<br><br>Snow White opens the door. Poisoned again.<br><br>Later: 'Would you like an apple?'<br><br>Snow White takes it. This time, she doesn't wake up.",
         next: 'convergence_second_chance'
       },
-
       convergence_second_chance: {
         type: 'convergence',
         convergenceType: 'purple',
@@ -346,57 +369,50 @@
         title: 'SECOND CHANCE',
         text: "The Prince arrives and saves her.<br><br>But THIS time, Snow White remembers what killed her: blind trust.<br><br>Will she make different choices?",
         options: [
-          { label: "🌟 Continue to Convergence: Power", subtext: "She now has power through the Prince...", next: 'convergence_power', isConvergence: true }
+          { label: "Continue to Convergence: Power", subtext: "She now has power through the Prince...", next: 'convergence_power', isConvergence: true }
         ]
       },
-
       path_c2_story: {
         type: 'narration',
-        text: "Snow White still helps the dwarfs. But she locks the door to strangers.<br><br>One day, a child's voice: 'Please help! My mother is hurt!'<br><br>Impossible choice:<br>• Open: might be trap (death)<br>• Keep closed: child dies (moral failure)<br><br>She is good. She opens. It was the Queen.",
+        text: "Snow White still helps the dwarfs. But she locks the door to strangers.<br><br>One day, a child's voice: 'Please help! My mother is hurt!'<br><br>Impossible choice: Open the door, it might be a trap. Keep it closed, and a child might die.<br><br>She is good. She opens. It was the Queen.",
         next: 'ending_c2'
       },
-
       ending_c2: {
         type: 'ending',
         endingType: 'critique',
         title: "Goodness as Target",
-        text: "Snow White dies.<br><br>Goodness and self-protection were incompatible. In a world where evil actively hunts you, being good means being exploitable.<br><br>→ The fairy tale lied: Goodness is not a shield. In a predatory system, it is a target.",
+        text: "Snow White dies.<br><br>Goodness and self-protection were incompatible. In a world where evil actively hunts you, being good means being exploitable.<br><br>The fairy tale lied: Goodness is not a shield. In a predatory system, it is a target.",
         retryPoints: ['path_c_choice', 'path_choice']
       },
-
       path_c3_story: {
         type: 'narration',
-        text: "Snow White tells the dwarfs: 'I want to be kind. But the Queen is hunting me. The kingdom's laws should protect me.'<br><br>A dwarf laughs: 'Laws? The Queen IS the law. She's judge, jury, executioner.'<br><br>Snow White realizes: no court, no police, no legal system. Only private protection.",
+        text: "Snow White tells the dwarfs: 'I want to be kind. But the Queen is hunting me. The kingdom's laws should protect me.'<br><br>A dwarf laughs: 'Laws? The Queen IS the law. She's judge, jury, executioner.'<br><br>Snow White realises: no court, no police, no legal system. Only private protection.",
         next: 'ending_c3'
       },
-
       ending_c3: {
         type: 'ending',
         endingType: 'critique',
         title: "No Structural Justice",
-        text: "Snow White hides in the forest forever. She remains kind to those she trusts. But without institutional protection, she is a permanent fugitive.<br><br>→ CRITIQUE: The fairy tale claimed 'goodness is rewarded,' but relied on luck (Prince) and private protection (dwarfs).<br><br>There was NO structural justice. For goodness to be rewarded, institutions must enforce justice. Otherwise, it's survival through luck.",
+        text: "Snow White hides in the forest forever. She remains kind to those she trusts. But without institutional protection, she is a permanent fugitive.<br><br>The fairy tale claimed 'goodness is rewarded,' but relied on luck and private protection. There was NO structural justice. For goodness to be rewarded, institutions must enforce justice. Otherwise, it's survival through luck.",
         retryPoints: ['path_c_choice', 'path_choice']
       },
 
-      // ========== PATH D: THE WEDDING ==========
+      // PATH D
       path_d_start: {
         type: 'narration',
-        text: "Snow White stands at the altar. Everyone expects her to smile.<br><br>But she looks at the Queen kneeling. Then the Prince. Then the crowd.<br><br>She thinks: 'This whole system is broken. The Queen wasn't the problem. The monarchy was. I can't fix this by being *good*. I need to change the structure itself.'",
+        text: "Snow White stands at the altar. Everyone expects her to smile.<br><br>But she looks at the Queen kneeling. Then the Prince. Then the crowd.<br><br>She thinks: 'This whole system is broken. The Queen wasn't the problem. The monarchy was. I can't fix this by being good. I need to change the structure itself.'",
         next: 'path_d_question'
       },
-
       path_d_narration: {
         type: 'narration',
-        text: "Snow White stands at the altar. Everyone expects her to smile.<br><br>But she looks at the Queen kneeling. Then the Prince. Then the crowd.<br><br>She thinks: 'This whole system is broken. The Queen wasn't the problem. The monarchy was. I can't fix this by being *good*. I need to change the structure itself.'",
+        text: "Snow White stands at the altar. Everyone expects her to smile.<br><br>But she looks at the Queen kneeling. Then the Prince. Then the crowd.<br><br>She thinks: 'This whole system is broken. The Queen wasn't the problem. The monarchy was. I can't fix this by being good. I need to change the structure itself.'",
         next: 'path_d_question'
       },
-
       path_d_question: {
         type: 'inner_thought',
         text: "Snow White asks the crowd: 'Do you want a good queen? Or do you want freedom from queens altogether?'",
         next: 'path_d_choice'
       },
-
       path_d_choice: {
         type: 'choice',
         question: "What kind of change should Snow White pursue?",
@@ -405,13 +421,11 @@
           { label: "D2. Abolish the monarchy and create a people's council", next: 'path_d2_story' }
         ]
       },
-
       path_d1_story: {
         type: 'narration',
         text: "Snow White takes the throne. She bans cruel punishments. She funds orphanages. She tries to be kind.<br><br>But nobles still oppress the poor. Military crushes dissent. Her son inherits and undoes her reforms.<br><br>Too late: 'I couldn't fix the system by being inside it.'",
         next: 'ending_d1'
       },
-
       ending_d1: {
         type: 'ending',
         endingType: 'critique',
@@ -419,20 +433,18 @@
         text: "Snow White's goodness changed nothing. The monarchy survives. Violence continues. The next generation faces the same cruelty.<br><br>The Queen Snow White is dead, long live the Queen. Individual virtue is fragile and temporary; structural evil is durable and permanent.",
         retryPoints: ['path_d_choice', 'path_choice']
       },
-
       path_d2_story: {
         type: 'narration',
         text: "Snow White addresses the crowd: 'I don't want to rule you. Let's build something new—together.'<br><br>She works with dwarfs, peasants, servants. They dismantle the palace. Mirrors are melted into windows.<br><br>The Queen isn't punished—she learns to see others as equals, not competitors.",
         next: 'ending_d2'
       },
-
       ending_d2: {
         type: 'ending',
         endingType: 'aspirational',
         title: "Structural Transformation",
         text: "It takes decades. There are setbacks. But slowly, the kingdom transforms.<br><br>'Goodness' is no longer individual virtue—it's collective care. Snow White is remembered not as 'the kindest princess,' but as the woman who refused to let kindness be a substitute for justice.",
         insight: "This is the only ending where goodness is truly rewarded—because the structure was changed to support it.",
-        symbol: "🪞 Mirrors → Windows",
+        symbol: "Mirrors into Windows",
         retryPoints: ['path_d_choice', 'path_choice']
       }
     };
@@ -447,14 +459,86 @@
       convergence_betrayal: "Betrayal Convergence"
     };
 
+    // ========== STATE ==========
     let currentNode = 'start';
     let history = [];
     let isMuted = false;
     let bgmLoaded = false;
+    let ttsEnabled = true;
+    let selectedVoice = 'UK English Female';
 
     const bgm = document.getElementById('bgm');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+    // ========== TTS - RESPONSIVEVOICE (PREMIUM BRITISH) ==========
+    
+    function stripHtml(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || '';
+    }
+
+    function speak(text) {
+      if (!ttsEnabled || isMuted) return;
+      
+      stopSpeaking();
+      
+      const cleanText = stripHtml(text);
+      const rate = parseFloat(document.getElementById('speechRate').value);
+      const pitch = parseFloat(document.getElementById('speechPitch').value);
+      const volume = parseFloat(document.getElementById('ttsVolume').value);
+      
+      // Show indicator
+      document.getElementById('ttsIndicator').classList.add('show');
+      
+      // Duck BGM
+      if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value) * 0.3;
+      
+      responsiveVoice.speak(cleanText, selectedVoice, {
+        rate: rate,
+        pitch: pitch,
+        volume: volume,
+        onend: () => {
+          document.getElementById('ttsIndicator').classList.remove('show');
+          if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
+        },
+        onerror: () => {
+          document.getElementById('ttsIndicator').classList.remove('show');
+          if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
+        }
+      });
+    }
+
+    function stopSpeaking() {
+      responsiveVoice.cancel();
+      document.getElementById('ttsIndicator').classList.remove('show');
+      if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
+    }
+
+    function speakCurrentNode() {
+      const node = story[currentNode];
+      if (!node || !ttsEnabled) return;
+      
+      let narrateText = '';
+      
+      if (node.type === 'narration' || node.type === 'inner_thought') {
+        narrateText = node.text;
+      } else if (node.type === 'choice') {
+        narrateText = node.question + '. ' + node.options.map((o, i) => `Option ${i+1}: ${stripHtml(o.label)}`).join('. ');
+      } else if (node.type === 'convergence') {
+        narrateText = node.title + '. ' + node.text;
+      } else if (node.type === 'ending') {
+        const isAspirations = node.endingType === 'aspirational';
+        narrateText = (isAspirations ? 'Aspirational Ending: ' : 'Structural Critique: ') + node.title + '. ' + node.text;
+        if (node.insight) narrateText += ' Key insight: ' + node.insight;
+      }
+      
+      if (narrateText) {
+        speak(narrateText);
+      }
+    }
+
+    // ========== SOUND EFFECTS ==========
     function playTone(freq, dur, type = 'sine', vol = 0.3) {
       if (isMuted) return;
       const osc = audioCtx.createOscillator();
@@ -474,7 +558,8 @@
     function playInnerThought() { playTone(600, 0.4, 'sine', 0.1); setTimeout(() => playTone(650, 0.3, 'sine', 0.08), 200); }
     function playConvergence() { playTone(330, 0.2, 'triangle', 0.3); setTimeout(() => playTone(440, 0.2, 'triangle', 0.25), 150); setTimeout(() => playTone(550, 0.3, 'triangle', 0.2), 300); }
 
-    function render() {
+    // ========== RENDER ==========
+    function render(autoSpeak = true) {
       const node = story[currentNode];
       const content = document.getElementById('content');
       let html = '';
@@ -554,7 +639,7 @@
 
             ${node.symbol ? `
               <div style="text-align: center; margin: 16px 0; padding: 12px; background: rgba(16,185,129,0.1); border-radius: 8px; border: 1px solid rgba(52,211,153,0.3);">
-                <div style="font-size: 1.1rem; color: #a7f3d0;">${node.symbol}</div>
+                <div style="font-size: 1.1rem; color: #a7f3d0;">🪞 ${node.symbol}</div>
               </div>
             ` : ''}
 
@@ -578,10 +663,15 @@
 
       content.innerHTML = html;
       updateJourney();
+      
+      if (autoSpeak && ttsEnabled) {
+        setTimeout(() => speakCurrentNode(), 300);
+      }
     }
 
     function goNext(nextId) {
       playClick();
+      stopSpeaking();
       if (audioCtx.state === 'suspended') audioCtx.resume();
       if (bgmLoaded && bgm.paused && !isMuted) bgm.play();
       history.push(currentNode);
@@ -591,6 +681,7 @@
 
     function makeChoice(nextId) {
       playChoice();
+      stopSpeaking();
       if (audioCtx.state === 'suspended') audioCtx.resume();
       if (bgmLoaded && bgm.paused && !isMuted) bgm.play();
       history.push(currentNode);
@@ -600,6 +691,7 @@
 
     function retry(point) {
       playClick();
+      stopSpeaking();
       const idx = history.indexOf(point);
       history = idx !== -1 ? history.slice(0, idx) : [];
       currentNode = point;
@@ -608,6 +700,7 @@
 
     function restart() {
       playClick();
+      stopSpeaking();
       history = [];
       currentNode = 'start';
       render();
@@ -624,14 +717,32 @@
       journey.innerHTML = `<span>Journey:</span> ${icons}`;
     }
 
+    // ========== AUDIO CONTROLS ==========
+    document.getElementById('ttsBtn').onclick = () => {
+      ttsEnabled = !ttsEnabled;
+      document.getElementById('ttsBtn').classList.toggle('active', ttsEnabled);
+      if (ttsEnabled) {
+        speakCurrentNode();
+      } else {
+        stopSpeaking();
+      }
+    };
+
     document.getElementById('muteBtn').onclick = () => {
       isMuted = !isMuted;
       document.getElementById('muteBtn').textContent = isMuted ? '🔇' : '🔊';
-      if (isMuted) bgm.pause(); else if (bgmLoaded) bgm.play();
+      if (isMuted) {
+        bgm.pause();
+        stopSpeaking();
+      } else if (bgmLoaded) {
+        bgm.play();
+      }
     };
+
     document.getElementById('settingsBtn').onclick = () => {
       document.getElementById('audioPanel').classList.toggle('show');
     };
+
     document.getElementById('bgmInput').onchange = (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -643,8 +754,22 @@
         if (!isMuted) bgm.play();
       }
     };
-    document.getElementById('bgmVolume').oninput = (e) => { bgm.volume = e.target.value; };
 
+    document.getElementById('bgmVolume').oninput = (e) => { bgm.volume = e.target.value; };
+    document.getElementById('speechRate').oninput = (e) => { 
+      document.getElementById('rateValue').textContent = e.target.value;
+    };
+    document.getElementById('speechPitch').oninput = (e) => { 
+      document.getElementById('pitchValue').textContent = e.target.value;
+    };
+    document.getElementById('ttsVolume').oninput = (e) => { 
+      document.getElementById('ttsVolValue').textContent = e.target.value;
+    };
+    document.getElementById('voiceSelect').onchange = (e) => {
+      selectedVoice = e.target.value;
+    };
+
+    // ========== STARS ==========
     function createStars() {
       const container = document.getElementById('stars');
       for (let i = 0; i < 50; i++) {
@@ -657,9 +782,25 @@
       }
     }
 
+    // ========== INIT ==========
     createStars();
-    render();
+    render(false);
+    
+    // Wait for ResponsiveVoice to load, then auto-start
+    function waitForVoice() {
+      if (typeof responsiveVoice !== 'undefined' && responsiveVoice.voiceSupport()) {
+        console.log('🇬🇧 ResponsiveVoice loaded - UK English Female ready');
+        if (ttsEnabled && currentNode === 'start') {
+          setTimeout(() => speakCurrentNode(), 500);
+        }
+      } else {
+        setTimeout(waitForVoice, 100);
+      }
+    }
+    waitForVoice();
+    
     bgm.src = 'bgm.mp3';
+    bgm.volume = 0.15;
     bgm.oncanplaythrough = () => {
       bgmLoaded = true;
       document.getElementById('musicStatus').textContent = '🎵 bgm.mp3 loaded';
