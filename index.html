@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snow White - Structural Critique</title>
-  <script src="https://code.responsivevoice.org/responsivevoice.js?key=pxfSy7wn"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
@@ -125,7 +124,6 @@
     .audio-panel .status.loaded { color: #4ade80; }
     .audio-panel .section-title { font-size: 0.8rem; color: #a78bfa; margin: 16px 0 8px 0; padding-top: 12px; border-top: 1px solid rgba(139, 92, 246, 0.2); }
     .voice-info { font-size: 0.75rem; color: #6ee7b7; margin-bottom: 10px; padding: 8px 12px; background: rgba(16, 185, 129, 0.15); border-radius: 8px; border: 1px solid rgba(52, 211, 153, 0.3); }
-    .voice-info .badge { display: inline-block; background: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; margin-left: 6px; }
 
     .tts-indicator {
       position: fixed; bottom: 20px; right: 20px; background: rgba(147, 51, 234, 0.9);
@@ -153,26 +151,14 @@
     <div class="audio-panel" id="audioPanel">
       <h4>🎵 Audio Settings</h4>
       
-      <div class="section-title">🇬🇧 Premium British Narration</div>
-      <div class="voice-info">
-        🎭 <strong>UK English Female</strong> <span class="badge">Premium</span><br>
-        <span style="font-size: 0.65rem; opacity: 0.8;">High-quality British RP accent</span>
-      </div>
-      <label>Voice Style</label>
-      <select id="voiceSelect">
-        <option value="UK English Female" selected>🇬🇧 UK English Female (Premium)</option>
-        <option value="UK English Male">🇬🇧 UK English Male</option>
-        <option value="Australian Female">🇦🇺 Australian Female</option>
-        <option value="Australian Male">🇦🇺 Australian Male</option>
-        <option value="US English Female">🇺🇸 US English Female</option>
-        <option value="US English Male">🇺🇸 US English Male</option>
-      </select>
+      <div class="section-title">🇬🇧 British English Narration</div>
+      <div class="voice-info" id="voiceInfo">Loading voices...</div>
+      <label>Voice</label>
+      <select id="voiceSelect"></select>
       <label>Speech Rate: <span id="rateValue">0.9</span></label>
       <input type="range" id="speechRate" min="0.5" max="1.2" step="0.05" value="0.9">
       <label>Pitch: <span id="pitchValue">1.0</span></label>
-      <input type="range" id="speechPitch" min="0.7" max="1.3" step="0.05" value="1.0">
-      <label>Volume: <span id="ttsVolValue">0.9</span></label>
-      <input type="range" id="ttsVolume" min="0.1" max="1" step="0.1" value="0.9">
+      <input type="range" id="speechPitch" min="0.8" max="1.2" step="0.05" value="1.0">
       
       <div class="section-title">🎵 Background Music</div>
       <div class="status" id="musicStatus">🎵 No music loaded</div>
@@ -189,7 +175,7 @@
 
   <div class="tts-indicator" id="ttsIndicator">
     <div class="pulse"></div>
-    <span>🇬🇧 Speaking...</span>
+    <span>Speaking...</span>
     <button onclick="stopSpeaking()" style="background:none;border:none;color:white;cursor:pointer;font-size:1rem;">✕</button>
   </div>
 
@@ -201,7 +187,7 @@
     </div>
     <div id="content"></div>
     <div class="journey" id="journey"></div>
-    <p class="footer">🇬🇧 Premium British English narration • 🎵 Upload BGM via settings</p>
+    <p class="footer">🎙️ Auto-narration • 🎵 Upload BGM via settings</p>
   </div>
 
   <audio id="bgm" loop></audio>
@@ -229,8 +215,6 @@
           { label: "PATH D: Rewind to the wedding ceremony", next: 'path_d_start' }
         ]
       },
-
-      // PATH A
       path_a_start: {
         type: 'narration',
         text: "The Prince finds Snow White's glass coffin in the forest. The dwarfs tell him: 'She was the kindest person we ever met.'<br><br>The Prince looks at her and thinks: 'She's beautiful. I'll take her to my palace.'<br><br>He orders his servants to carry the coffin. As they lift it, the poisoned apple dislodges. Snow White wakes up.",
@@ -284,8 +268,6 @@
         text: "Snow White gives up her goodness and becomes exactly like her stepmother—using power only for self-preservation.<br><br>She realised that in this kingdom, there is only one throne but many mirrors. To survive the structure, she had to abandon goodness and grasp power to become the oppressor.",
         retryPoints: ['convergence_power', 'path_a_choice', 'path_choice']
       },
-
-      // PATH B
       path_b_start: {
         type: 'narration',
         text: "The dwarfs come home from the mine. Their house is clean, and dinner is ready. They smile: 'You can stay here, Snow White!'<br><br>Snow White is grateful. But then she realises: 'Wait. I'm doing all the housework. Is this... a job? Or am I just expected to do it for free because I'm a woman?'",
@@ -331,8 +313,6 @@
         text: "Snow White survives by being 'good'—which means being exploitable. The system rewards compliance, not character.<br><br>Her goodness wasn't virtue. It was survival.",
         retryPoints: ['path_b_choice', 'path_choice']
       },
-
-      // PATH C
       path_c_start: {
         type: 'narration',
         text: "An old woman knocks: 'Pretty ribbons for sale!'<br><br>The dwarfs warned: 'Don't open the door!' But Snow White thinks: 'She's just a poor old woman. It would be rude.'<br><br>She opens the door. The Queen strangles her with the ribbon.",
@@ -396,8 +376,6 @@
         text: "Snow White hides in the forest forever. She remains kind to those she trusts. But without institutional protection, she is a permanent fugitive.<br><br>The fairy tale claimed 'goodness is rewarded,' but relied on luck and private protection. There was NO structural justice. For goodness to be rewarded, institutions must enforce justice. Otherwise, it's survival through luck.",
         retryPoints: ['path_c_choice', 'path_choice']
       },
-
-      // PATH D
       path_d_start: {
         type: 'narration',
         text: "Snow White stands at the altar. Everyone expects her to smile.<br><br>But she looks at the Queen kneeling. Then the Prince. Then the crowd.<br><br>She thinks: 'This whole system is broken. The Queen wasn't the problem. The monarchy was. I can't fix this by being good. I need to change the structure itself.'",
@@ -465,13 +443,110 @@
     let isMuted = false;
     let bgmLoaded = false;
     let ttsEnabled = true;
-    let selectedVoice = 'UK English Female';
+    let voices = [];
+    let selectedVoice = null;
+    let voicesLoaded = false;
 
     const bgm = document.getElementById('bgm');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // ========== TTS - RESPONSIVEVOICE (PREMIUM BRITISH) ==========
+    // ========== TTS - WEB SPEECH API ==========
     
+    function getVoiceScore(voice) {
+      const name = voice.name.toLowerCase();
+      const lang = voice.lang.toLowerCase();
+      let score = 0;
+      
+      // British English gets highest priority
+      if (lang === 'en-gb' || lang.startsWith('en-gb') || lang === 'en_gb') score += 100;
+      
+      // Premium voice indicators
+      if (name.includes('neural')) score += 50;
+      if (name.includes('premium')) score += 40;
+      if (name.includes('enhanced')) score += 30;
+      if (name.includes('natural')) score += 25;
+      
+      // Known good British voices
+      if (name.includes('daniel')) score += 60;
+      if (name.includes('kate')) score += 60;
+      if (name.includes('serena')) score += 55;
+      if (name.includes('martha')) score += 55;
+      if (name.includes('hazel')) score += 50;
+      if (name.includes('george')) score += 50;
+      
+      // Google/Microsoft voices are generally better
+      if (name.includes('google uk')) score += 70;
+      if (name.includes('microsoft')) score += 40;
+      if (name.includes('google')) score += 30;
+      
+      // Female voices often clearer for storytelling
+      if (name.includes('female')) score += 10;
+      
+      // Any English is fallback
+      if (lang.startsWith('en')) score += 5;
+      
+      return score;
+    }
+
+    function loadVoices() {
+      voices = speechSynthesis.getVoices();
+      if (voices.length === 0) return false;
+      
+      const voiceSelect = document.getElementById('voiceSelect');
+      voiceSelect.innerHTML = '';
+      
+      // Filter and sort English voices
+      const englishVoices = voices
+        .filter(v => v.lang.startsWith('en'))
+        .map(v => ({ voice: v, score: getVoiceScore(v) }))
+        .sort((a, b) => b.score - a.score);
+      
+      if (englishVoices.length === 0) {
+        document.getElementById('voiceInfo').textContent = '⚠️ No English voices found';
+        return false;
+      }
+      
+      // Populate dropdown
+      englishVoices.forEach(({ voice }) => {
+        const option = document.createElement('option');
+        option.value = voices.indexOf(voice);
+        const flag = voice.lang.toLowerCase().includes('gb') ? '🇬🇧' : 
+                    voice.lang.toLowerCase().includes('au') ? '🇦🇺' : '🇺🇸';
+        option.textContent = `${flag} ${voice.name}`;
+        voiceSelect.appendChild(option);
+      });
+      
+      // Select best voice
+      const bestVoice = englishVoices[0].voice;
+      selectedVoice = bestVoice;
+      voiceSelect.value = voices.indexOf(bestVoice);
+      
+      // Update info display
+      const isBritish = bestVoice.lang.toLowerCase().includes('gb');
+      const flag = isBritish ? '🇬🇧' : bestVoice.lang.toLowerCase().includes('au') ? '🇦🇺' : '🇺🇸';
+      const region = isBritish ? 'British' : bestVoice.lang.toLowerCase().includes('au') ? 'Australian' : 'American';
+      document.getElementById('voiceInfo').innerHTML = `${flag} <strong>${region}</strong>: ${bestVoice.name}`;
+      document.getElementById('voiceInfo').style.color = isBritish ? '#6ee7b7' : '#fbbf24';
+      
+      voicesLoaded = true;
+      return true;
+    }
+
+    // Multiple attempts to load voices (browser quirk)
+    function initVoices() {
+      if (loadVoices()) {
+        // Voices loaded, start narration
+        if (ttsEnabled && currentNode === 'start') {
+          setTimeout(() => speakCurrentNode(), 300);
+        }
+      }
+    }
+
+    // Chrome loads voices async
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = initVoices;
+    }
+
     function stripHtml(html) {
       const tmp = document.createElement('div');
       tmp.innerHTML = html;
@@ -479,45 +554,53 @@
     }
 
     function speak(text) {
-      if (!ttsEnabled || isMuted) return;
+      if (!ttsEnabled || isMuted || !voicesLoaded) return;
       
       stopSpeaking();
       
       const cleanText = stripHtml(text);
-      const rate = parseFloat(document.getElementById('speechRate').value);
-      const pitch = parseFloat(document.getElementById('speechPitch').value);
-      const volume = parseFloat(document.getElementById('ttsVolume').value);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       
-      // Show indicator
-      document.getElementById('ttsIndicator').classList.add('show');
+      // Set voice
+      const voiceIndex = document.getElementById('voiceSelect').value;
+      if (voices[voiceIndex]) {
+        utterance.voice = voices[voiceIndex];
+      } else if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
       
-      // Duck BGM
-      if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value) * 0.3;
+      utterance.rate = parseFloat(document.getElementById('speechRate').value);
+      utterance.pitch = parseFloat(document.getElementById('speechPitch').value);
+      utterance.lang = selectedVoice?.lang || 'en-GB';
       
-      responsiveVoice.speak(cleanText, selectedVoice, {
-        rate: rate,
-        pitch: pitch,
-        volume: volume,
-        onend: () => {
-          document.getElementById('ttsIndicator').classList.remove('show');
-          if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
-        },
-        onerror: () => {
-          document.getElementById('ttsIndicator').classList.remove('show');
-          if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
-        }
-      });
+      utterance.onstart = () => {
+        document.getElementById('ttsIndicator').classList.add('show');
+        if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value) * 0.3;
+      };
+      
+      utterance.onend = () => {
+        document.getElementById('ttsIndicator').classList.remove('show');
+        if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
+      };
+      
+      utterance.onerror = (e) => {
+        console.log('TTS Error:', e);
+        document.getElementById('ttsIndicator').classList.remove('show');
+        if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
+      };
+      
+      speechSynthesis.speak(utterance);
     }
 
     function stopSpeaking() {
-      responsiveVoice.cancel();
+      speechSynthesis.cancel();
       document.getElementById('ttsIndicator').classList.remove('show');
       if (bgmLoaded) bgm.volume = parseFloat(document.getElementById('bgmVolume').value);
     }
 
     function speakCurrentNode() {
       const node = story[currentNode];
-      if (!node || !ttsEnabled) return;
+      if (!node || !ttsEnabled || !voicesLoaded) return;
       
       let narrateText = '';
       
@@ -528,14 +611,12 @@
       } else if (node.type === 'convergence') {
         narrateText = node.title + '. ' + node.text;
       } else if (node.type === 'ending') {
-        const isAspirations = node.endingType === 'aspirational';
-        narrateText = (isAspirations ? 'Aspirational Ending: ' : 'Structural Critique: ') + node.title + '. ' + node.text;
+        const isAsp = node.endingType === 'aspirational';
+        narrateText = (isAsp ? 'Aspirational Ending: ' : 'Structural Critique: ') + node.title + '. ' + node.text;
         if (node.insight) narrateText += ' Key insight: ' + node.insight;
       }
       
-      if (narrateText) {
-        speak(narrateText);
-      }
+      if (narrateText) speak(narrateText);
     }
 
     // ========== SOUND EFFECTS ==========
@@ -615,15 +696,15 @@
         playConvergence();
       }
       else if (node.type === 'ending') {
-        const isAspirations = node.endingType === 'aspirational';
+        const isAsp = node.endingType === 'aspirational';
         let retryBtns = node.retryPoints.map(p => `<button class="btn btn-ghost btn-small" onclick="retry('${p}')">↩ ${choiceLabels[p] || p}</button>`).join('');
         
         html = `
           <div class="card ending-${node.endingType}">
             <div class="framework-badge ${node.endingType}">
-              <span class="icon">${isAspirations ? '✨' : '💔'}</span>
+              <span class="icon">${isAsp ? '✨' : '💔'}</span>
               <div>
-                <div class="name">${isAspirations ? 'ASPIRATIONAL ENDING' : 'STRUCTURAL CRITIQUE'}</div>
+                <div class="name">${isAsp ? 'ASPIRATIONAL ENDING' : 'STRUCTURAL CRITIQUE'}</div>
                 <div class="subtitle">${node.title}</div>
               </div>
             </div>
@@ -643,7 +724,7 @@
               </div>
             ` : ''}
 
-            ${!isAspirations ? `
+            ${!isAsp ? `
               <div class="critique-box">
                 <div class="c-label">Structural Critique</div>
                 <div class="c-text">The fairy tale's promise—"goodness is rewarded"—fails under examination. Without structural change, individual virtue remains vulnerable to exploitation.</div>
@@ -658,7 +739,7 @@
             </div>
           </div>`;
         
-        if (isAspirations) playGoodEnding(); else playDarkEnding();
+        if (isAsp) playGoodEnding(); else playDarkEnding();
       }
 
       content.innerHTML = html;
@@ -762,11 +843,16 @@
     document.getElementById('speechPitch').oninput = (e) => { 
       document.getElementById('pitchValue').textContent = e.target.value;
     };
-    document.getElementById('ttsVolume').oninput = (e) => { 
-      document.getElementById('ttsVolValue').textContent = e.target.value;
-    };
     document.getElementById('voiceSelect').onchange = (e) => {
-      selectedVoice = e.target.value;
+      const idx = e.target.value;
+      if (voices[idx]) {
+        selectedVoice = voices[idx];
+        const isBritish = selectedVoice.lang.toLowerCase().includes('gb');
+        const flag = isBritish ? '🇬🇧' : selectedVoice.lang.toLowerCase().includes('au') ? '🇦🇺' : '🇺🇸';
+        const region = isBritish ? 'British' : selectedVoice.lang.toLowerCase().includes('au') ? 'Australian' : 'American';
+        document.getElementById('voiceInfo').innerHTML = `${flag} <strong>${region}</strong>: ${selectedVoice.name}`;
+        document.getElementById('voiceInfo').style.color = isBritish ? '#6ee7b7' : '#fbbf24';
+      }
     };
 
     // ========== STARS ==========
@@ -784,20 +870,21 @@
 
     // ========== INIT ==========
     createStars();
-    render(false);
+    render(false); // Don't auto-speak yet
     
-    // Wait for ResponsiveVoice to load, then auto-start
-    function waitForVoice() {
-      if (typeof responsiveVoice !== 'undefined' && responsiveVoice.voiceSupport()) {
-        console.log('🇬🇧 ResponsiveVoice loaded - UK English Female ready');
-        if (ttsEnabled && currentNode === 'start') {
-          setTimeout(() => speakCurrentNode(), 500);
-        }
-      } else {
-        setTimeout(waitForVoice, 100);
-      }
-    }
-    waitForVoice();
+    // Try to load voices immediately (Firefox)
+    initVoices();
+    
+    // Retry voice loading (some browsers need delay)
+    setTimeout(() => {
+      if (!voicesLoaded) initVoices();
+    }, 100);
+    setTimeout(() => {
+      if (!voicesLoaded) initVoices();
+    }, 500);
+    setTimeout(() => {
+      if (!voicesLoaded) initVoices();
+    }, 1000);
     
     bgm.src = 'bgm.mp3';
     bgm.volume = 0.15;
